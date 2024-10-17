@@ -2,6 +2,7 @@
 title: "欢迎来到我的博客"
 description: Welcome to My Blog
 date: 2024-10-15T17:06:46+08:00
+slug: welcome-to-my-blog
 image: 
 math: 
 license: 
