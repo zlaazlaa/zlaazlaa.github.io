@@ -82,3 +82,39 @@ Hugo Stack 模板仓库内包含 `deploy.yml`、`update-theme.yml` 两个 GitHub
 同时也可以配置强制 https 以增强安全性。
 
 ![custom-domain](post/how-to-use-hugo/imgs/custom-domain.png)
+
+## 添加 Giscus 评论系统
+
+Hugo支持多种评论系统，我选择了 Giscus。Giscus 会将所有的评论保存至Github Discussion，无需担心数据丢失的问题。
+
+### 安装 Giscus App 至当前仓库
+
+[Giscus App](https://github.com/apps/giscus)
+
+### 开启仓库的 Discussion 功能
+
+![enable-discussion](post/how-to-use-hugo/imgs/enable-discussion.png)
+
+### 在 Giscus 官网获取配置信息
+
+![giscus-config](post/how-to-use-hugo/imgs/giscus-config.png)
+
+![giscus-config2](post/how-to-use-hugo/imgs/giscus-config2.png)
+
+### 在 Hugo 配置文件中启用 Giscus 评论系统
+
+配置信息与上一步在 Giscus 官网获取的信息相对应，配置文件示例如下：
+```
+# config/_defconfig/params.toml
+
+[comments.giscus]
+repo = "zlaazlaa/zlaazlaa.github.io"
+repoId = "R_kgDONAZhPA"
+category = "Announcements"
+categoryId = "DIC_kwDONAZhPM4CjXiy"
+mapping = "pathname"
+lightTheme = ""
+darkTheme = ""
+reactionsEnabled = 1
+emitMetadata = 0
+```
