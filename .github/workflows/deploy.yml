@@ -42,7 +42,7 @@ jobs:
             - name: Build
               run: hugo --minify --gc
 
-            - name: Deploy 🚀
+            - name: Deploy 🚀🚀🚀
               uses: JamesIves/github-pages-deploy-action@v4
               with:
                   branch: gh-pages
