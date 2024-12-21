@@ -43,7 +43,7 @@ jobs:
               run: hugo --minify --gc
 
             - name: Add Baidu verification
-              run: sed 's/<head>/<head><meta name="baidu-site-verification" content="codeva-aqlP3YTrF5">/g' ./public/index.html
+              run: sed -i 's/<head>/<head><meta name="baidu-site-verification" content="codeva-aqlP3YTrF5">/g' ./public/index.html
 
             - name: cat index.html
               run: cat ./public/index.html
