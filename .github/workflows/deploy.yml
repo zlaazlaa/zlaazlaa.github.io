@@ -45,6 +45,9 @@ jobs:
             - name: Add Baidu verification
               run: sed 's/<head>/<head><meta name="baidu-site-verification" content="codeva-aqlP3YTrF5">/g' ./public/index.html
 
+            - name: cat index.html
+              run: cat ./public/index.html
+
             - name: Deploy 🚀🚀🚀
               uses: JamesIves/github-pages-deploy-action@v4
               with:
@@ -52,3 +55,6 @@ jobs:
                   folder: public
                   clean: true
                   single-commit: true
+
+            - name: cat index.html
+              run: cat ./public/index.html
