@@ -43,10 +43,7 @@ jobs:
               run: hugo --minify --gc
 
             - name: Add Baidu verification
-              run: sed -i 's/<head>/<head><meta name="baidu-site-verification" content="codeva-aqlP3YTrF5">/g' ./public/index.html
-
-            - name: cat index.html
-              run: cat ./public/index.html
+              run: sed -i 's/<head>/<head><meta name="baidu-site-verification" content="codeva-aqlP3YTrF5">/' ./public/index.html
 
             - name: Deploy 🚀🚀🚀
               uses: JamesIves/github-pages-deploy-action@v4
@@ -55,6 +52,3 @@ jobs:
                   folder: public
                   clean: true
                   single-commit: true
-
-            - name: cat index.html
-              run: cat ./public/index.html
