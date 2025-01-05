@@ -16,8 +16,6 @@ categories:
     - 经验分享
 ---
 
-# 在 VMware Fusion 中扩展 Ubuntu 虚拟机磁盘容量
-
 在使用 VMware Fusion 时，可能会遇到 Ubuntu 虚拟机磁盘空间不足的问题。本文将介绍如何在 VMware Fusion 中扩展 Ubuntu 虚拟机的磁盘容量，以确保系统能够正常运行并满足更多存储需求。
 
 ## 在 VMware Fusion 中增加 Ubuntu 的硬盘分配空间

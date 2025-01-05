@@ -16,8 +16,6 @@ categories:
   - 经验分享
 ---
 
-# 使用 Linenoise 时转义序列显示异常
-
 ## Linenoise 简介
 
 [Linenoise](https://github.com/antirez/linenoise/blob/master/linenoise.c) 是一个轻量级的行编辑库，适用于需要简单命令行编辑功能的应用程序，可以用它快速完成 shell 的开发。它支持多平台，并且与 GNU Readline 库相比，Linenoise 的代码更加简洁，易于集成和使用。

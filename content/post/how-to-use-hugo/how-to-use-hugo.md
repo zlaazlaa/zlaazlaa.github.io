@@ -17,8 +17,6 @@ categories:
     - 经验分享
 ---
 
-# 使用 Hugo Stack 和 GitHub Pages/Actions 搭建博客
-
 [Hugo](https://gohugo.io) 是一个用 Go 语言编写的静态网站生成器，以速度快、易用性高和灵活性强而著称。Hugo 通过结合 Markdown 文件和模板，能够快速生成静态网页，适用于博客、文档和个人网站等场景。它支持多种主题和插件，能够轻松部署到 GitHub Pages 等平台，非常适合开发者和内容创作者使用。
 
 Hugo 提供了许多主题，我使用的是 [Hugo Stack](https://github.com/CaiJimmy/hugo-theme-stack)。在部署过程中，如果使用 Hugo 官方文档，即使已经取消 draft 标记，也无法显示新建的文章：[Issue](https://github.com/CaiJimmy/hugo-theme-stack)。可以直接使用 [Hugo Stack 的官方模板](https://github.com/CaiJimmy/hugo-theme-stack-starter) 来解决这个问题。

@@ -16,8 +16,6 @@ categories:
   - 经验分享
 ---
 
-# 使用 lite-cornea 调试 ARM Fixed Virtual Platforms (FVPs)
-
 ## 概述
 
 在调试 ARM FVP 模型时，直接通过 GDB 连接是行不通的。虽然 ARM 官方为付费版 Fast Model 提供了 [GDB 插件](https://developer.arm.com/documentation/100964/1115/Plug-ins-for-Fast-Models/GDBRemoteConnection)，但免费版 Base Model 并不支持该功能。取而代之，Base Model 提供了一种名为 Iris Debug Server 的 Python Debug API。因此，要使用 GDB 调试 Base FVP，需要通过中间工具进行协议转译。
