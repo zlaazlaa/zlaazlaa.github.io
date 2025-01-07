@@ -1,7 +1,7 @@
 ---
 title: "在 VMware Fusion 中扩展 Ubuntu 虚拟机磁盘容量"
 slug: expand-ubuntu-disk-capacity
-description: 
+description: "如何在 VMware Fusion 中扩展并分配 Ubuntu 虚拟机的磁盘容量。"
 date: 2024-10-19T16:18:16+08:00
 image: 
 math: 

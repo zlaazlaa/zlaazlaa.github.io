@@ -1,6 +1,6 @@
 ---
 title: "使用 lite-cornea 调试 ARM Fixed Virtual Platforms (FVPs)"
-description:
+description: "通过 lite-cornea 工具使用 GDB 调试 ARM FVP 模型的步骤与注意事项。"
 slug: debug-fvp-via-gdb
 date: 2025-01-05T15:59:16+08:00
 image:

@@ -1,6 +1,6 @@
 ---
 title: "如何 Debug U-Boot"
-description: 
+description: "介绍 U-Boot 的 relocate 机制及其调试所需的断点设置与符号表加载步骤。"
 date: 2025-01-05T19:03:20+08:00
 slug: debug-u-boot
 image: 

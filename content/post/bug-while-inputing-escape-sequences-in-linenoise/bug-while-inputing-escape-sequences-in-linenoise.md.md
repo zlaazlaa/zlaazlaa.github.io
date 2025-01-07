@@ -1,6 +1,6 @@
 ---
 title: "使用Linenoise时转义序列显示异常"
-description:
+description: "Linenoise 转义序列问题的产生原因及其解决方法。"
 slug: bug-while-inputing-escape-sequences-in-linenoise
 date: 2024-11-07T17:10:33+08:00
 image:

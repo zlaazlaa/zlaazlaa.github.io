@@ -1,6 +1,6 @@
 ---
 title: "ARM Fixed Virtual Platforms (FVPs)中运行 Hypervisor，Guest OS 的全局变量没有置零"
-description: 
+description: "在 ARM FVP 上运行 Hypervisor + Guest OS 时，出现未初始化全局变量未自动清零的问题及其调试和解决方案。"
 date: 2025-01-06T21:01:07+08:00
 slug: global-val-is-not-zero-in-fvp
 image: 

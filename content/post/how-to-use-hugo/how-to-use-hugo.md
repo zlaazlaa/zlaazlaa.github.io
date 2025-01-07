@@ -1,6 +1,6 @@
 ---
 title: "使用 Hugo Stack 和 GitHub Pages/Actions 搭建博客"
-description: 
+description: "介绍使用 Hugo Stack 模板、结合 GitHub Actions 及自定义域名，快速搭建并自动化部署个人博客的步骤。"
 date: 2024-10-17T13:39:46+08:00
 slug: how-to-use-hugo
 image: 

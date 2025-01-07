@@ -1,6 +1,6 @@
 ---
 title: "VS Code C/C++ 插件 cpptools CPU 占用过高"
-description:
+description: "VS Code C/C++ 插件在大型项目中导致 CPU 占用过高的问题及其排除目录的解决方法。"
 slug: fix-vscode-cpptools-cpu-usage-too-high
 date: 2024-12-04T18:27:07+08:00
 image:
