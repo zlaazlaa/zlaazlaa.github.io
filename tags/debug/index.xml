@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Debug on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/debug/</link><description>Recent content in Debug on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 05 Jan 2025 19:03:20 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/debug/index.xml" rel="self" type="application/rss+xml"/><item><title>如何 Debug U-Boot</title><link>https://blog.zlaaa.top/p/debug-u-boot/</link><pubDate>Sun, 05 Jan 2025 19:03:20 +0800</pubDate><guid>https://blog.zlaaa.top/p/debug-u-boot/</guid><description>&lt;h2 id="前言">前言
+&lt;/h2>&lt;p>最近在 Debug U-boot 的过程中遇到了无法打断点的问题，找了好久才确定是 U-Boot 自身做 relocate 造成的，其实这个问题在 &lt;a class="link" href="https://docs.u-boot.org/en/latest/develop/gdb.html" target="_blank" rel="noopener"
+>U-Boot 官方文档&lt;/a>中有提及，所以这里做一下记录。&lt;/p>
+&lt;h2 id="减少编译优化与禁用链接时间优化">减少编译优化与禁用链接时间优化
+&lt;/h2>&lt;p>为了方便调试，防止有些变量被优化掉导致 gdb 中看不到，在 U-Boot 的 defconfig 中添加如下配置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_CC_OPTIMIZE_FOR_DEBUG&lt;/span>&lt;span class="o">=&lt;/span>y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_LTO&lt;/span>&lt;span class="o">=&lt;/span>n
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="开启-u-boot-debug-日志输出">开启 U-Boot Debug 日志输出
+&lt;/h2>&lt;p>修改 u-boot/include/log.h&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/debug-u-boot/imgs/u-boot-debug-log.png"
+loading="lazy"
+alt="u-boot-debug-log"
+>&lt;/p>
+&lt;h2 id="u-boot-relocate-介绍">U-Boot relocate 介绍
+&lt;/h2>&lt;p>U-Boot在启动阶段会将自己的地址做重定向，一开始 add-symbol-file 时没有加地址也可以正常使用，是因为在没有 relocate 前，U-Boot 的地址与符号表中的一致。执行 relocate (u-boot/arch/arm/lib/relocate_64.S) 操作后，U-Boot 的运行地址发生变化，原来导入的符号表就不能用了，需要将符号表导入到新的地址。&lt;/p>
+&lt;h2 id="u-boot-debug-过程">U-Boot Debug 过程
+&lt;/h2>&lt;h3 id="第一步添加符号表无需指定地址">第一步：添加符号表（无需指定地址）
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">add-symbol-file ./workdir/src/u-boot/u-boot
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第二步在-relocate_done-函数处打断点并运行-u-boot">第二步：在 relocate_done 函数处打断点并运行 u-boot
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> &lt;span class="nb">break&lt;/span> relocate_done
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint &lt;span class="m">1&lt;/span> at 0x88002e8c: file arch/arm/lib/relocate_64.S, line 80.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Continuing.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint 1, relocate_code &lt;span class="o">()&lt;/span> at arch/arm/lib/relocate_64.S:80
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="m">80&lt;/span> switch_el x1, 3f, 2f, 1f
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第三步查看-u-boot-重定向后的运行地址">第三步：查看 U-Boot 重定向后的运行地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> p/x &lt;span class="o">(&lt;/span>*&lt;span class="o">(&lt;/span>struct global_data*&lt;span class="o">)&lt;/span>&lt;span class="nv">$x18&lt;/span>&lt;span class="o">)&lt;/span>-&amp;gt;relocaddr
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">$2&lt;/span> &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>这一步中，具体的寄存器见表，我这里是 arm64 架构的，所以结构体地址存储在 x18 寄存器中：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Architecture&lt;/th>
+&lt;th>Register&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>arc&lt;/td>
+&lt;td>r25&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm&lt;/td>
+&lt;td>r9&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm64&lt;/td>
+&lt;td>x18&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>m68k&lt;/td>
+&lt;td>d7&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>microblaze&lt;/td>
+&lt;td>r31&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mips&lt;/td>
+&lt;td>k0&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>nios2&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>powerpc&lt;/td>
+&lt;td>r2&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>riscv&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>sh&lt;/td>
+&lt;td>r13&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="第四步删除原先符号表">第四步：删除原先符号表
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> symbol-file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Discard symbol table? &lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">No symbol file now.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第五步将符号表加载到重定向后的地址">第五步：将符号表加载到重定向后的地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> add-symbol-file ./workdir/src/u-boot/u-boot 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add symbol table from file &lt;span class="s2">&amp;#34;./workdir/src/u-boot/u-boot&amp;#34;&lt;/span> at
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> .text_addr &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Reading symbols from ./workdir/src/u-boot/u-boot...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>是否重新导入符号表取决于打断点的位置，如果在 relocate 操作前则不需要，反之则需要。&lt;/p></description></item><item><title>使用 lite-cornea 调试 ARM Fixed Virtual Platforms (FVPs)</title><link>https://blog.zlaaa.top/p/debug-fvp-via-gdb/</link><pubDate>Sun, 05 Jan 2025 15:59:16 +0800</pubDate><guid>https://blog.zlaaa.top/p/debug-fvp-via-gdb/</guid><description>&lt;h2 id="概述">概述
+&lt;/h2>&lt;p>在调试 ARM FVP 模型时，直接通过 GDB 连接是行不通的。虽然 ARM 官方为付费版 Fast Model 提供了 &lt;a class="link" href="https://developer.arm.com/documentation/100964/1115/Plug-ins-for-Fast-Models/GDBRemoteConnection" target="_blank" rel="noopener"
+>GDB 插件&lt;/a>，但免费版 Base Model 并不支持该功能。取而代之，Base Model 提供了一种名为 Iris Debug Server 的 Python Debug API。因此，要使用 GDB 调试 Base FVP，需要通过中间工具进行协议转译。&lt;/p>
+&lt;p>本文将介绍如何使用 lite-cornea 工具简化 FVP 的调试过程。&lt;/p>
+&lt;h2 id="调试工具选择">调试工具选择
+&lt;/h2>&lt;p>目前找到的 Iris-to-GDB 转译工具有以下两个：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&lt;a class="link" href="https://github.com/Linaro/lite-cornea.git" target="_blank" rel="noopener"
+>lite-cornea&lt;/a>&lt;/strong>
+&lt;ul>
+&lt;li>基于 Rust，可直接嵌入 GDB 终端，命令兼容性较好。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&lt;a class="link" href="https://github.com/santongding/iris-gdb-wrapper" target="_blank" rel="noopener"
+>iris-gdb-wrapper&lt;/a>&lt;/strong>
+&lt;ul>
+&lt;li>基于 Python，需要先运行后端服务，然后以远程模式连接 GDB。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>经测试，lite-cornea 支持更多 GDB 命令（如 &lt;code>dump&lt;/code>、&lt;code>restore&lt;/code>），推荐使用。iris-gdb-wrapper 在使用这些命令时有一些 bug，不能正常导入导出内存。&lt;/p>
+&lt;h2 id="安装-lite-cornea">安装 lite-cornea
+&lt;/h2>&lt;h3 id="安装-rust-环境">安装 Rust 环境
+&lt;/h3>&lt;p>运行以下命令快速安装：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">curl --proto &lt;span class="s1">&amp;#39;=https&amp;#39;&lt;/span> --tlsv1.2 -sSf https://sh.rustup.rs &lt;span class="p">|&lt;/span> sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>安装完成后，&lt;strong>重启终端&lt;/strong>并验证 Rust：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">cargo --version
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="编译并安装-lite-cornea">编译并安装 lite-cornea
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">git clone https://github.com/Linaro/lite-cornea.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">cd&lt;/span> lite-cornea
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cargo build
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo cp target/debug/cornea /usr/bin/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cornea --help
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用-gdb--lite-cornea-调试-fvp">使用 GDB + lite-cornea 调试 FVP
+&lt;/h2>&lt;h3 id="配置-fvp-启动参数">配置 FVP 启动参数
+&lt;/h3>&lt;p>在启动 FVP 时，添加 -I 参数以启用 Iris Debug Server。&lt;/p>
+&lt;h3 id="编写-gdb-调试脚本">编写 GDB 调试脚本
+&lt;/h3>&lt;p>创建一个 GDB 启动脚本（例如 debug.sh）并添加以下内容：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#!/usr/bin/env -S gdb -q -ix
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>&lt;span class="nb">set&lt;/span> architecture aarch64
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add-symbol-file /path/to/your/symbol/file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">target remote &lt;span class="p">|&lt;/span> cornea gdb-proxy component.FVP_Base_RevC_2xAEMvA.cluster0.cpu0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动调试">启动调试
+&lt;/h3>&lt;p>运行 FVP 后，执行调试脚本：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">sh debug.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>脚本执行成功后，会自动进入 GDB 调试终端，默认停在 0x0 的位置，方便后续调试：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">$ ./gdb-connect-fvp2.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">The target architecture is &lt;span class="nb">set&lt;/span> to &lt;span class="s2">&amp;#34;aarch64&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">warning: No executable has been specified and target does not support
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">determining executable automatically. Try using the &lt;span class="s2">&amp;#34;file&amp;#34;&lt;/span> command.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">0x0000000000000000 in ?? &lt;span class="o">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意&lt;/strong>：&lt;/p>
+&lt;p>cornea 参数中的 FVP_Base_RevC_2xAEMvA 需替换为实际运行的 FVP 模型名称，与 FVP 的二进制文件名（例如 FVP_Base_RevC-2xAEMvA）相似。
+如果不确定模型名称，请参考 &lt;a class="link" href="https://documentation-service.arm.com/static/615eda5ce4f35d24846799a7" target="_blank" rel="noopener"
+>ARM FVP 文档&lt;/a> 中的模型目录：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/debug-fvp-via-gdb/imgs/fvp-guide-catalog.png"
+loading="lazy"
+alt="ARM FVP Base Model目录"
+>&lt;/p></description></item></channel></rss>
