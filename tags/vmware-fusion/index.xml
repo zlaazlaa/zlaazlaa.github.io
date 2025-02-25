@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>VMware Fusion on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/vmware-fusion/</link><description>Recent content in VMware Fusion on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 21 Feb 2025 16:08:17 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/vmware-fusion/index.xml" rel="self" type="application/rss+xml"/><item><title>降低 VMware Fusion 的硬盘占用</title><link>https://blog.zlaaa.top/p/shrink-vmware-disk/</link><pubDate>Fri, 21 Feb 2025 16:08:17 +0800</pubDate><guid>https://blog.zlaaa.top/p/shrink-vmware-disk/</guid><description>&lt;p>在使用 VMware Fusion 创建虚拟机时，分配给虚拟机的硬盘空间并不会立即占用宿主机的空间，而是根据虚拟机的实际需求动态申请。&lt;/p>
+&lt;p>经过长时间使用，VMware Fusion 占用宿主机的硬盘空间可能会大于虚拟机实际使用的空间。这是因为 VMware Fusion 只会向宿主机申请空间，而不会主动释放。此时，需要借助 VMware Tools 手动释放硬盘空间。&lt;/p>
+&lt;h2 id="安装-vmware-tools">安装 VMware Tools
+&lt;/h2>&lt;p>可以参考&lt;a class="link" href="https://techdocs.broadcom.com/cn/zh-cn/vmware-cis/vsphere/tools/12-5-0/vmware-tools-administration-12-5-0/installing-vmware-tools/manually-install-vmware-tools-on-linux.html" target="_blank" rel="noopener"
+>官方文档&lt;/a>，或者也可以使用 apt 安装：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">sudo apt-get install open-vm-tools-desktop
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用-vmware-tools-shrink-硬盘">使用 VMware Tools Shrink 硬盘
+&lt;/h2>&lt;p>运行以下 shell 脚本，释放虚拟机未使用的磁盘空间：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">disk_list&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="sb">`&lt;/span>sudo vmware-toolbox-cmd disk list&lt;span class="sb">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> disk in &lt;span class="si">${&lt;/span>&lt;span class="nv">disk_list&lt;/span>&lt;span class="si">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sudo vmware-toolbox-cmd disk wipe &lt;span class="si">${&lt;/span>&lt;span class="nv">disk&lt;/span>&lt;span class="si">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo vmware-toolbox-cmd disk shrinkonly
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>在 VMware Fusion 中扩展 Ubuntu 虚拟机磁盘容量</title><link>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</link><pubDate>Sat, 19 Oct 2024 16:18:16 +0800</pubDate><guid>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</guid><description>&lt;p>在使用 VMware Fusion 时，可能会遇到 Ubuntu 虚拟机磁盘空间不足的问题。本文将介绍如何在 VMware Fusion 中扩展 Ubuntu 虚拟机的磁盘容量，以确保系统能够正常运行并满足更多存储需求。&lt;/p>
+&lt;h2 id="在-vmware-fusion-中增加-ubuntu-的硬盘分配空间">在 VMware Fusion 中增加 Ubuntu 的硬盘分配空间
+&lt;/h2>&lt;p>首先将 Ubuntu 虚拟机关机，然后在 VMware Fusion 中配置硬盘空间。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image.png"
+loading="lazy"
+alt="硬盘配置"
+>&lt;/p>
+&lt;h2 id="在-ubuntu-中分配新增空间">在 Ubuntu 中分配新增空间
+&lt;/h2>&lt;p>此时新增的空间只是未分配空间，并没有真正用于 Ubuntu，磁盘大小并没有改变。&lt;/p>
+&lt;p>可以使用 GParted 图形化分区编辑工具对硬盘进行分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-1.png"
+loading="lazy"
+alt="GParted 工具"
+>&lt;/p>
+&lt;p>如图所示，新增的 130G 空间尚未分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-2.png"
+loading="lazy"
+alt="未分配空间"
+>&lt;/p>
+&lt;p>首先点击原有的磁盘空间，再点击 resize 按钮，将其扩大至最大。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-3.png"
+loading="lazy"
+alt="调整磁盘大小"
+>&lt;/p>
+&lt;p>完成后可以看到根目录磁盘空间已经扩大至 150G。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-4.png"
+loading="lazy"
+alt="扩展后的磁盘空间"
+>&lt;/p></description></item></channel></rss>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Github Actions on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/github-actions/</link><description>Recent content in Github Actions on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 17 Oct 2024 13:39:46 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/github-actions/index.xml" rel="self" type="application/rss+xml"/><item><title>使用 Hugo Stack 和 GitHub Pages/Actions 搭建博客</title><link>https://blog.zlaaa.top/p/how-to-use-hugo/</link><pubDate>Thu, 17 Oct 2024 13:39:46 +0800</pubDate><guid>https://blog.zlaaa.top/p/how-to-use-hugo/</guid><description>&lt;p>&lt;a class="link" href="https://gohugo.io" target="_blank" rel="noopener"
+>Hugo&lt;/a> 是一个用 Go 语言编写的静态网站生成器，以速度快、易用性高和灵活性强而著称。Hugo 通过结合 Markdown 文件和模板，能够快速生成静态网页，适用于博客、文档和个人网站等场景。它支持多种主题和插件，能够轻松部署到 GitHub Pages 等平台，非常适合开发者和内容创作者使用。&lt;/p>
+&lt;p>Hugo 提供了许多主题，我使用的是 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener"
+>Hugo Stack&lt;/a>。在部署过程中，如果使用 Hugo 官方文档，即使已经取消 draft 标记，也无法显示新建的文章：&lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener"
+>Issue&lt;/a>。可以直接使用 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack-starter" target="_blank" rel="noopener"
+>Hugo Stack 的官方模板&lt;/a> 来解决这个问题。&lt;/p>
+&lt;h2 id="使用模板创建仓库">使用模板创建仓库
+&lt;/h2>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/template.png"
+loading="lazy"
+>
+创建的仓库名为username.github.io，username为自己的github用户名。&lt;/p>
+&lt;h2 id="将仓库克隆到本地并安装-hugo-拓展版">将仓库克隆到本地并安装 Hugo 拓展版
+&lt;/h2>&lt;h3 id="linux">Linux
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">sudo apt install hugo
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="mac-os">Mac OS
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">brew install hugo
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="windows">Windows
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">choco install hugo-extended
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>或者直接&lt;a class="link" href="https://github.com/gohugoio/hugo/releases/latest" target="_blank" rel="noopener"
+>下载二进制&lt;/a>&lt;/p>
+&lt;h2 id="新增文章并发布">新增文章并发布
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">hugo new content content/posts/my-first-post.md
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>使用此命令创建的文章有 draft 标记，Hugo 在默认情况下并不会发布带有此标记的文章，需要添加 &lt;code>-D&lt;/code> 或 &lt;code>--buildDrafts&lt;/code> 参数。&lt;/p>
+&lt;p>确认发布后，将 draft 标记改为 &lt;code>false&lt;/code>，提交 commit 至 GitHub 即可。&lt;/p>
+&lt;h2 id="github-actions-自动化发布">GitHub Actions 自动化发布
+&lt;/h2>&lt;p>Hugo Stack 模板仓库内包含 &lt;code>deploy.yml&lt;/code>、&lt;code>update-theme.yml&lt;/code> 两个 GitHub Workflow 文件，分别负责自动化发布和更新主题版本，详见 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack-starter/tree/master/.github/workflows" target="_blank" rel="noopener"
+>Hugo Stack GitHub Workflows&lt;/a>。仓库的更新会触发 GitHub Actions 进行自动化发布。&lt;/p>
+&lt;h2 id="github-pages-配置">GitHub Pages 配置
+&lt;/h2>&lt;p>&lt;code>deploy.yml&lt;/code> 会将博客发布到 &lt;code>gh-pages&lt;/code> 分支。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/deploy-yml.png"
+loading="lazy"
+alt="deploy.yml"
+>&lt;/p>
+&lt;p>所以需要在仓库设置中更改 Pages 的分支为 &lt;code>gh-pages&lt;/code>。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/repo-pages-setting.png"
+loading="lazy"
+alt="repo-pages-setting"
+>&lt;/p>
+&lt;p>如果没有 &lt;code>gh-pages&lt;/code> 选项，可能 GitHub Actions 还在构建中，等待构建完毕即可。&lt;/p>
+&lt;h2 id="自定义域名">自定义域名
+&lt;/h2>&lt;p>发布完毕后，可以通过 &lt;code>https://username.github.io&lt;/code> 访问，也可以配置自定义域名。&lt;/p>
+&lt;p>只需要将你的域名 CNAME 指向 &lt;code>username.github.io&lt;/code>，并在仓库设置中添加 Custom domain，等待 DNS 验证成功后，即可使用自定义的域名访问刚刚发布的博客。&lt;/p>
+&lt;p>同时也可以配置强制 https 以增强安全性。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/custom-domain.png"
+loading="lazy"
+alt="custom-domain"
+>&lt;/p>
+&lt;h2 id="添加-giscus-评论系统">添加 Giscus 评论系统
+&lt;/h2>&lt;p>Hugo支持多种评论系统，我选择了 Giscus。Giscus 会将所有的评论保存至Github Discussion，无需担心数据丢失的问题。&lt;/p>
+&lt;h3 id="安装-giscus-app-至当前仓库">安装 Giscus App 至当前仓库
+&lt;/h3>&lt;p>&lt;a class="link" href="https://github.com/apps/giscus" target="_blank" rel="noopener"
+>Giscus App&lt;/a>&lt;/p>
+&lt;h3 id="开启仓库的-discussion-功能">开启仓库的 Discussion 功能
+&lt;/h3>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/enable-discussion.png"
+loading="lazy"
+alt="enable-discussion"
+>&lt;/p>
+&lt;h3 id="在-giscus-官网获取配置信息">在 Giscus 官网获取配置信息
+&lt;/h3>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/giscus-config.png"
+loading="lazy"
+alt="giscus-config"
+>&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/giscus-config2.png"
+loading="lazy"
+alt="giscus-config2"
+>&lt;/p>
+&lt;h3 id="在-hugo-配置文件中启用-giscus-评论系统">在 Hugo 配置文件中启用 Giscus 评论系统
+&lt;/h3>&lt;p>配置信息与上一步在 Giscus 官网获取的信息相对应，配置文件示例如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># config/_defconfig/params.toml
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[comments.giscus]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">repo = &amp;#34;zlaazlaa/zlaazlaa.github.io&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">repoId = &amp;#34;R_kgDONAZhPA&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">category = &amp;#34;Announcements&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">categoryId = &amp;#34;DIC_kwDONAZhPM4CjXiy&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mapping = &amp;#34;pathname&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">lightTheme = &amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">darkTheme = &amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">reactionsEnabled = 1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">emitMetadata = 0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

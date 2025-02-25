@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Ubuntu on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/ubuntu/</link><description>Recent content in Ubuntu on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 19 Oct 2024 16:18:16 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/ubuntu/index.xml" rel="self" type="application/rss+xml"/><item><title>在 VMware Fusion 中扩展 Ubuntu 虚拟机磁盘容量</title><link>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</link><pubDate>Sat, 19 Oct 2024 16:18:16 +0800</pubDate><guid>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</guid><description>&lt;p>在使用 VMware Fusion 时，可能会遇到 Ubuntu 虚拟机磁盘空间不足的问题。本文将介绍如何在 VMware Fusion 中扩展 Ubuntu 虚拟机的磁盘容量，以确保系统能够正常运行并满足更多存储需求。&lt;/p>
+&lt;h2 id="在-vmware-fusion-中增加-ubuntu-的硬盘分配空间">在 VMware Fusion 中增加 Ubuntu 的硬盘分配空间
+&lt;/h2>&lt;p>首先将 Ubuntu 虚拟机关机，然后在 VMware Fusion 中配置硬盘空间。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image.png"
+loading="lazy"
+alt="硬盘配置"
+>&lt;/p>
+&lt;h2 id="在-ubuntu-中分配新增空间">在 Ubuntu 中分配新增空间
+&lt;/h2>&lt;p>此时新增的空间只是未分配空间，并没有真正用于 Ubuntu，磁盘大小并没有改变。&lt;/p>
+&lt;p>可以使用 GParted 图形化分区编辑工具对硬盘进行分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-1.png"
+loading="lazy"
+alt="GParted 工具"
+>&lt;/p>
+&lt;p>如图所示，新增的 130G 空间尚未分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-2.png"
+loading="lazy"
+alt="未分配空间"
+>&lt;/p>
+&lt;p>首先点击原有的磁盘空间，再点击 resize 按钮，将其扩大至最大。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-3.png"
+loading="lazy"
+alt="调整磁盘大小"
+>&lt;/p>
+&lt;p>完成后可以看到根目录磁盘空间已经扩大至 150G。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-4.png"
+loading="lazy"
+alt="扩展后的磁盘空间"
+>&lt;/p></description></item></channel></rss>

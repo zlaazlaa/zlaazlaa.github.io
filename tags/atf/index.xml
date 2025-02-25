@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>ATF on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/atf/</link><description>Recent content in ATF on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 25 Feb 2025 14:10:15 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/atf/index.xml" rel="self" type="application/rss+xml"/><item><title>ARM Fixed Virtual Platforms (FVPs) + ATF 多核启动</title><link>https://blog.zlaaa.top/p/fvp-atf-multi-core-startup/</link><pubDate>Tue, 25 Feb 2025 14:10:15 +0800</pubDate><guid>https://blog.zlaaa.top/p/fvp-atf-multi-core-startup/</guid><description>&lt;h2 id="atf-的两种多核启动流程">ATF 的两种多核启动流程
+&lt;/h2>&lt;p>ATF 支持两种多核启动流程：&lt;/p>
+&lt;ul>
+&lt;li>SoC 启动时仅有一个核心上电&lt;/li>
+&lt;li>SoC 启动时所有核心同时上电&lt;/li>
+&lt;/ul>
+&lt;p>这两种启动方式由以下宏定义控制：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/aarch64/bl1_entrypoint.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">func&lt;/span> &lt;span class="n">bl1_entrypoint&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* ---------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * If the reset address is programmable then bl1_entrypoint() is
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * executed only on the cold boot path. Therefore, we can skip the warm
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * boot mailbox mechanism.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * ---------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">el3_entrypoint_common&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_init_sctlr&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_warm_boot_mailbox&lt;/span>&lt;span class="o">=!&lt;/span>&lt;span class="n">PROGRAMMABLE_RESET_ADDRESS&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_secondary_cold_boot&lt;/span>&lt;span class="o">=!&lt;/span>&lt;span class="n">COLD_BOOT_SINGLE_CPU&lt;/span> &lt;span class="err">\&lt;/span> &lt;span class="c1">// 注意这里
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">_init_memory&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_init_c_runtime&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_exception_vectors&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">bl1_exceptions&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_pie_fixup_size&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/include/arch/aarch64/el3_common_macros.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="err">\&lt;/span>&lt;span class="n">_secondary_cold_boot&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* -------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Check if this is a primary or secondary CPU cold boot.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The primary CPU will set up the platform while the
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * secondaries are placed in a platform-specific state until the
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * primary CPU performs the necessary actions to bring them out
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * of that state and allows entry into the OS.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * -------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">plat_is_my_cpu_primary&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cbnz&lt;/span> &lt;span class="n">w0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">do_primary_cold_boot&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* This is a cold boot on a secondary CPU */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">plat_secondary_cold_boot_setup&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* plat_secondary_cold_boot_setup() is not supposed to return */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">el3_panic&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nl">do_primary_cold_boot&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="n">endif&lt;/span> &lt;span class="cm">/* _secondary_cold_boot */&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="单核上电">单核上电
+&lt;/h3>&lt;p>当编译 ATF 时，如果将 COLD_BOOT_SINGLE_CPU 设置为 1，则采用第一种方式：冷启动时只有一个核心运行，secondary_cold_boot 宏不会被编译，直接执行 do_primary_cold_boot。此时，从核需要通过内核发出 PSCI 请求，由 ATF 处理后才能启动。下图展示了内核调用 PSCI 并由 ATF 响应的过程：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/kernel-call-psci.png"
+loading="lazy"
+alt="kernel-call-psci"
+>&lt;/p>
+&lt;p>为 FVP 启动参数添加追踪插件（&amp;ndash;plugin FVP-PATH/Base_RevC_AEMvA_pkg/plugins/Linux64_armv8l_GCC-9.3/TarmacTrace.so）后，可以观察到 u-boot 启动时仍然只有单核（cpu0）运行，其他核心只有在进入 kernel 后才被唤醒：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/fvp-tarmactrace.png"
+loading="lazy"
+alt="fvp-tarmactrace"
+>&lt;/p>
+&lt;h3 id="多核上电">多核上电
+&lt;/h3>&lt;p>如果将 COLD_BOOT_SINGLE_CPU 设置为 0，则采用第二种方式：冷启动时所有核心同时上电，主核执行 do_primary_cold_boot，从核执行 plat_secondary_cold_boot_setup。在 plat_secondary_cold_boot_setup 函数中，从核会进入低功耗状态，等待 kernel 通过 PSCI 请求唤醒并写入启动地址，然后通过检查 mailbox 是否为非零值来完成唤醒过程：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/plat/arm/board/fvp/aarch64/fvp_helpers.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mov_imm&lt;/span> &lt;span class="n">x0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">PLAT_ARM_TRUSTED_MAILBOX_BASE&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* Wait until the entrypoint gets populated */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nl">poll_mailbox&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ldr&lt;/span> &lt;span class="n">x1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">x0&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cbz&lt;/span> &lt;span class="n">x1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mf">1f&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">br&lt;/span> &lt;span class="n">x1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mi">1&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">wfe&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">b&lt;/span> &lt;span class="n">poll_mailbox&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>具体采用哪种启动方式取决于编译 ATF 时 COLD_BOOT_SINGLE_CPU 的配置值。在 ATF 的默认设置中，该值通常为 0（定义于 atf-src/make_helpers/defaults.mk），各平台可根据需要在各自的 platform.mk 中进行覆盖。在 FVP 的配置中，COLD_BOOT_SINGLE_CPU 也被设置为 0。&lt;/p>
+&lt;h2 id="fvp-配置启动时核心上电情况">FVP 配置启动时核心上电情况
+&lt;/h2>&lt;p>FVP 还允许配置启动时为哪些核心上电，这与 COLD_BOOT_SINGLE_CPU 的不同取值组合，会产生不同的启动行为，如下表所示：&lt;/p>
+&lt;table>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>pctl.startup=0.0.0.0（仅主核上电）&lt;/th>
+&lt;th>pctl.startup=0.0.0.*（所有核心上电）&lt;/th>
+&lt;/tr>
+&lt;tr>
+&lt;td>COLD_BOOT_SINGLE_CPU=0&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>COLD_BOOT_SINGLE_CPU=1&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;td style="background-color: lightcoral;">❌ 无法启动&lt;/td>
+&lt;/tr>
+&lt;/table>
+&lt;p>当 COLD_BOOT_SINGLE_CPU=1 且 pctl.startup=0.0.0.* 时，由于 do_primary_cold_boot 函数被多个核心重复执行，系统无法正常启动。&lt;br>
+而在 COLD_BOOT_SINGLE_CPU=0 且 pctl.startup=0.0.0.0 的情况下，系统可以通过 PSCI 接口唤醒尚未上电的次核：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/atf-reset-cpu1.png"
+loading="lazy"
+alt="atf-reset-cpu1"
+>&lt;/p></description></item></channel></rss>

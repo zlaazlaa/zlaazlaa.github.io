@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Linenoise on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/linenoise/</link><description>Recent content in Linenoise on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 07 Nov 2024 17:10:33 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/linenoise/index.xml" rel="self" type="application/rss+xml"/><item><title>使用Linenoise时转义序列显示异常</title><link>https://blog.zlaaa.top/p/bug-while-inputing-escape-sequences-in-linenoise/</link><pubDate>Thu, 07 Nov 2024 17:10:33 +0800</pubDate><guid>https://blog.zlaaa.top/p/bug-while-inputing-escape-sequences-in-linenoise/</guid><description>&lt;h2 id="linenoise-简介">Linenoise 简介
+&lt;/h2>&lt;p>&lt;a class="link" href="https://github.com/antirez/linenoise/blob/master/linenoise.c" target="_blank" rel="noopener"
+>Linenoise&lt;/a> 是一个轻量级的行编辑库，适用于需要简单命令行编辑功能的应用程序，可以用它快速完成 shell 的开发。它支持多平台，并且与 GNU Readline 库相比，Linenoise 的代码更加简洁，易于集成和使用。&lt;/p>
+&lt;h2 id="转义序列显示异常">转义序列显示异常
+&lt;/h2>&lt;p>在移植 Linenoise 之后，发现此时 Shell 存在一个 Bug，长按某些按键时会输出&lt;code>[D&lt;/code>、&lt;code>[A&lt;/code>、&lt;code>D&lt;/code>、&lt;code>A&lt;/code>之类的乱码，例如，长按左右方向键时会输出如下字符，并且出现的时机不规律。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/bug-while-inputing-escape-sequences-in-linenoise/imgs/img1.png"
+loading="lazy"
+alt="alt text"
+>&lt;/p>
+&lt;h2 id="分析">分析
+&lt;/h2>&lt;p>按理来说按下左右方向键不应输出任何字符，所以肯定和左右方向键的转义序列有关，一些按键的转义序列如下：&lt;/p>
+&lt;ul>
+&lt;li>上箭头键：ESC [ A 或 \x1b[A&lt;/li>
+&lt;li>下箭头键：ESC [ B 或 \x1b[B&lt;/li>
+&lt;li>左箭头键：ESC [ D 或 \x1b[D&lt;/li>
+&lt;li>右箭头键：ESC [ C 或 \x1b[C&lt;/li>
+&lt;li>删除键（Del）：ESC [ 3 ~ 或 \x1b[3~&lt;/li>
+&lt;/ul>
+&lt;p>查看 Linenoise 源码发现，处理逻辑为逐个尝试输入&lt;code>ESC&lt;/code>、&lt;code>[&lt;/code>、&lt;code>A/B/C/D/数字～&lt;/code>&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/bug-while-inputing-escape-sequences-in-linenoise/imgs/img2.png"
+loading="lazy"
+alt="alt text"
+>&lt;/p>
+&lt;p>问题就出在逐个输入这里，如果输入采用的串口不稳定（我这里是 pl011），快速输入就会导致读取失败（Linenoise 读取时串口缓冲区还没有数据），这里直接 break 就会导致状态机跳出当前状态，使得&lt;code>ESC&lt;/code>、&lt;code>[&lt;/code>、&lt;code>A&lt;/code>三者被拆开，并没有当作一个&lt;code>上箭头键&lt;/code>来处理。&lt;/p>
+&lt;h2 id="解决方案">解决方案
+&lt;/h2>&lt;p>解决方案也很简单，就是将 break 改成循环读入，如果读取失败就重新尝试。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nf">read&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">l&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ifd&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">seq&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">break&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

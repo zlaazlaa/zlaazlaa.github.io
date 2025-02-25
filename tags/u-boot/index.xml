@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>U-Boot on zlaazlaa's blog</title><link>https://blog.zlaaa.top/tags/u-boot/</link><description>Recent content in U-Boot on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 05 Jan 2025 19:03:20 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/tags/u-boot/index.xml" rel="self" type="application/rss+xml"/><item><title>如何 Debug U-Boot</title><link>https://blog.zlaaa.top/p/debug-u-boot/</link><pubDate>Sun, 05 Jan 2025 19:03:20 +0800</pubDate><guid>https://blog.zlaaa.top/p/debug-u-boot/</guid><description>&lt;h2 id="前言">前言
+&lt;/h2>&lt;p>最近在 Debug U-boot 的过程中遇到了无法打断点的问题，找了好久才确定是 U-Boot 自身做 relocate 造成的，其实这个问题在 &lt;a class="link" href="https://docs.u-boot.org/en/latest/develop/gdb.html" target="_blank" rel="noopener"
+>U-Boot 官方文档&lt;/a>中有提及，所以这里做一下记录。&lt;/p>
+&lt;h2 id="减少编译优化与禁用链接时间优化">减少编译优化与禁用链接时间优化
+&lt;/h2>&lt;p>为了方便调试，防止有些变量被优化掉导致 gdb 中看不到，在 U-Boot 的 defconfig 中添加如下配置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_CC_OPTIMIZE_FOR_DEBUG&lt;/span>&lt;span class="o">=&lt;/span>y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_LTO&lt;/span>&lt;span class="o">=&lt;/span>n
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="开启-u-boot-debug-日志输出">开启 U-Boot Debug 日志输出
+&lt;/h2>&lt;p>修改 u-boot/include/log.h&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/debug-u-boot/imgs/u-boot-debug-log.png"
+loading="lazy"
+alt="u-boot-debug-log"
+>&lt;/p>
+&lt;h2 id="u-boot-relocate-介绍">U-Boot relocate 介绍
+&lt;/h2>&lt;p>U-Boot在启动阶段会将自己的地址做重定向，一开始 add-symbol-file 时没有加地址也可以正常使用，是因为在没有 relocate 前，U-Boot 的地址与符号表中的一致。执行 relocate (u-boot/arch/arm/lib/relocate_64.S) 操作后，U-Boot 的运行地址发生变化，原来导入的符号表就不能用了，需要将符号表导入到新的地址。&lt;/p>
+&lt;h2 id="u-boot-debug-过程">U-Boot Debug 过程
+&lt;/h2>&lt;h3 id="第一步添加符号表无需指定地址">第一步：添加符号表（无需指定地址）
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">add-symbol-file ./workdir/src/u-boot/u-boot
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第二步在-relocate_done-函数处打断点并运行-u-boot">第二步：在 relocate_done 函数处打断点并运行 u-boot
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> &lt;span class="nb">break&lt;/span> relocate_done
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint &lt;span class="m">1&lt;/span> at 0x88002e8c: file arch/arm/lib/relocate_64.S, line 80.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Continuing.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint 1, relocate_code &lt;span class="o">()&lt;/span> at arch/arm/lib/relocate_64.S:80
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="m">80&lt;/span> switch_el x1, 3f, 2f, 1f
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第三步查看-u-boot-重定向后的运行地址">第三步：查看 U-Boot 重定向后的运行地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> p/x &lt;span class="o">(&lt;/span>*&lt;span class="o">(&lt;/span>struct global_data*&lt;span class="o">)&lt;/span>&lt;span class="nv">$x18&lt;/span>&lt;span class="o">)&lt;/span>-&amp;gt;relocaddr
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">$2&lt;/span> &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>这一步中，具体的寄存器见表，我这里是 arm64 架构的，所以结构体地址存储在 x18 寄存器中：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Architecture&lt;/th>
+&lt;th>Register&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>arc&lt;/td>
+&lt;td>r25&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm&lt;/td>
+&lt;td>r9&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm64&lt;/td>
+&lt;td>x18&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>m68k&lt;/td>
+&lt;td>d7&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>microblaze&lt;/td>
+&lt;td>r31&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mips&lt;/td>
+&lt;td>k0&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>nios2&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>powerpc&lt;/td>
+&lt;td>r2&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>riscv&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>sh&lt;/td>
+&lt;td>r13&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="第四步删除原先符号表">第四步：删除原先符号表
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> symbol-file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Discard symbol table? &lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">No symbol file now.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第五步将符号表加载到重定向后的地址">第五步：将符号表加载到重定向后的地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> add-symbol-file ./workdir/src/u-boot/u-boot 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add symbol table from file &lt;span class="s2">&amp;#34;./workdir/src/u-boot/u-boot&amp;#34;&lt;/span> at
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> .text_addr &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Reading symbols from ./workdir/src/u-boot/u-boot...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>是否重新导入符号表取决于打断点的位置，如果在 relocate 操作前则不需要，反之则需要。&lt;/p></description></item></channel></rss>

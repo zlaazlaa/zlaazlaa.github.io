@@ -1,0 +1,1109 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>经验分享 on zlaazlaa's blog</title><link>https://blog.zlaaa.top/categories/%E7%BB%8F%E9%AA%8C%E5%88%86%E4%BA%AB/</link><description>Recent content in 经验分享 on zlaazlaa's blog</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 25 Feb 2025 15:15:11 +0800</lastBuildDate><atom:link href="https://blog.zlaaa.top/categories/%E7%BB%8F%E9%AA%8C%E5%88%86%E4%BA%AB/index.xml" rel="self" type="application/rss+xml"/><item><title>ARM Fixed Virtual Platforms (FVPs) + boot-wrapper-aarch64 多核启动</title><link>https://blog.zlaaa.top/p/fvp-wrapper-multi-core-startup/</link><pubDate>Tue, 25 Feb 2025 15:15:11 +0800</pubDate><guid>https://blog.zlaaa.top/p/fvp-wrapper-multi-core-startup/</guid><description>&lt;p>QEMU 支持直接启动具有 Linux Boot Protocal Head 的 kernel 文件，而 FVP 在启动这类 kernel 文件时，就需要借助 ATF 与 u-boot，启动流程较为复杂，而且对调试很不友好。但是 FVP 支持直接启动 ELF 文件，这就需要 boot-wrapper-aarch64 将具有 Linux Boot Protocal Head 的 kernel 文件封装成 ELF 文件，以便 FVP 直接启动 kernel。封装前 kernel 发出的 PSCI 请求由 ATF 响应，封装后由 boot-wrapper-aarch64 响应。&lt;/p>
+&lt;p>boot-wrapper-aarch64 在处理多核启动时没有 ATF 那么灵活（详见&lt;a class="link" href="https://blog.zlaaa.top/p/fvp-atf-multi-core-startup/" target="_blank" rel="noopener"
+>ARM Fixed Virtual Platforms (FVPs) + boot-wrapper-aarch64 多核启动&lt;/a>），只支持系统 startup 时所有核心一起上电，所以需要对 FVP 添加配置 &lt;code>-C pctl.startup=0.0.0.*&lt;/code> 确保每个核心都上电。&lt;/p>
+&lt;p>如果不是所有核心都上电，在初始化阶段会卡在这里：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// wrapper-src/common/init.c
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="nf">cpu_init_bootwrapper&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">static&lt;/span> &lt;span class="k">volatile&lt;/span> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">cpu_next&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">cpu&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nf">this_cpu_logical_id&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cpu&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">init_bootwrapper&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cpu_next&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">cpu&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">wfe&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">cpu_init_self&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">cpu&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cpu_next&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">cpu&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">dsb&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">sy&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">sev&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cpu&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cpu_next&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">NR_CPUS&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">wfe&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="c1">// 卡在这里，因为从核未上电，cpu_next 不会继续增加
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="nf">print_string&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;All CPUs initialized. Entering kernel...&lt;/span>&lt;span class="se">\r\n\r\n&lt;/span>&lt;span class="s">&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="cpu-亲和性mpidr_el1-寄存器与设备树-cpu-节点的-reg-值">CPU 亲和性、MPIDR_EL1 寄存器与设备树 cpu 节点的 reg 值
+&lt;/h2>&lt;p>要想搞懂 FVP 核心启动的四元组配置，首先需要搞懂 CPU 亲和性的相关信息。&lt;/p>
+&lt;p>默认状态下，FVP 中 cpu 亲和性四元组中每个数字含义如下：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>第一位（chip）&lt;/strong>: 物理 SoC 芯片 ID（通常在单 SoC 系统中是 0）。&lt;/li>
+&lt;li>&lt;strong>第二位（cluster）&lt;/strong>: 处理器簇（Cluster）ID，用于标识属于哪一组 CPU 核。&lt;/li>
+&lt;li>&lt;strong>第三位（core）&lt;/strong>: 在某个 Cluster 内的 CPU 核 ID。&lt;/li>
+&lt;li>&lt;strong>第四位（thread）&lt;/strong>: 超线程 ID（如果处理器支持 SMT，则会有多个线程）。&lt;/li>
+&lt;/ul>
+&lt;p>这四位与 MPIDR_EL1 寄存器（armv8 是 MPIDR_EL1，armv7 是 MPIDR）中 Aff0、Aff1、Aff2、Aff3 值相对应。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/MPIDR_EL1-bit-assignments.png"
+loading="lazy"
+alt="MPIDR_EL1-bit-assignments"
+>&lt;/p>
+&lt;p>Aff 0、1、2、3 在四元组中对应关系为 {Aff3, Aff2, Aff1, Aff0}，每个四元组唯一标识一个 CPU。&lt;/p>
+&lt;p>同样，设备树 cpu 节点中的 reg 值就是从 MPIDR 寄存器中计算得到的，计算方法如下：&lt;/p>
+&lt;p>以 ArmV8 64bit 系统为例：&lt;/p>
+&lt;ol>
+&lt;li>当 &lt;code>#address-cell&lt;/code> property 为 2 时，需要设置 MPIDR_EL1[39:32]（Aff3）到第一个 reg cell 的 reg[7:0]、MPIDR_EL1[23:0]（Aff2、Aff1、Aff0）到第二个 reg cell 的 reg[23:0]。&lt;/li>
+&lt;li>当 &lt;code>#address-cell&lt;/code> property 为 1 时，需要设置 MPIDR_EL1[23:0]（Aff2、Aff1、Aff0）到 reg[23:0]；reg 的其他位设置为 0。&lt;/li>
+&lt;/ol>
+&lt;p>对于 MPIDR_EL1 中的 aff0/1/2/3，对应 FVP 四元组为 (aff3, aff2, aff1, aff0)，reg 值为 &lt;code>&amp;lt;0x aff3&amp;gt; &amp;lt;0x aff2 aff1 aff0&amp;gt;&lt;/code>。&lt;/p>
+&lt;p>计算示例（示例中 aff3 均为 0，&lt;code>#address-cell&lt;/code> property 为 1）：&lt;/p>
+&lt;ol>
+&lt;li>FVP 中亲和性配置为：&lt;code>pctl.CPU-affinities=0.0.0.0, 0.0.1.0, 0.0.2.0, 0.0.3.0&lt;/code>，那么 reg 的值应该是：
+&lt;ul>
+&lt;li>cpu0: 0x00 00 00 00&lt;/li>
+&lt;li>cpu1: 0x00 00 01 00&lt;/li>
+&lt;li>cpu2: 0x00 00 02 00&lt;/li>
+&lt;li>cpu3: 0x00 00 03 00&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>FVP 中亲和性配置为：&lt;code>pctl.CPU-affinities=0.0.0.0, 0.0.0.1, 0.0.1.0, 0.0.1.1, 0.0.1.2, 0.0.1.3&lt;/code>，那么 reg 的值应该是：
+&lt;ul>
+&lt;li>cpu0: 0x00 00 00 00&lt;/li>
+&lt;li>cpu1: 0x00 00 00 01&lt;/li>
+&lt;li>cpu2: 0x00 00 01 00&lt;/li>
+&lt;li>cpu3: 0x00 00 01 01&lt;/li>
+&lt;li>cpu4: 0x00 00 01 02&lt;/li>
+&lt;li>cpu5: 0x00 00 01 03&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol>
+&lt;p>Note：0.0.1.3 对应的是 0x103，而不是 0x13，因为 aff0、1、2、3 每个占用 8 bit 空间。&lt;/p>
+&lt;h2 id="fvp-中-cpu-亲和性相关启动参数">FVP 中 CPU 亲和性相关启动参数
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>&lt;code>-C cluster0.mpidr_layout=0&lt;/code>&lt;/p>
+&lt;p>mpidr_layout=0 时，AFF0 为 CPUID，mpidr_layout=1 时，AFF1 为 CPUID。将 mpidr_layout 设置为 0，使得四元组倒数第二位代表 cluster 号，最后一位代表 cluster 内 cpu id，方便计算，FVP 手册中也对 aff 含义进行了描述：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/fvp-affx-meaning.png"
+loading="lazy"
+alt="fvp-affx-meaning"
+>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>-C pctl.CPU-affinities='0.0.0.0, 0.0.0.1, 0.0.0.2, 0.0.0.3'&lt;/code>&lt;/p>
+&lt;p>配置 CPU-affinities，修改默认的 cpu 亲和性，配置 cluster0.mpidr_layout=0 时，计算得到的设备树中 cpu 节点的 reg 值为 0x0 0x1 0x2 0x3，较为直观。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>-C pctl.startup=0.0.0.*&lt;/code>&lt;/p>
+&lt;p>使用通配符，为确保亲和性为 0.0.0.0, 0.0.0.1, 0.0.0.2, 0.0.0.3 的四个核心在系统启动时全部上电。&lt;/p>
+&lt;p>虽然在启动时所有核心都会上电，但只有主核心（primary CPU）会从内核继续执行，其他辅助核心（secondary CPU）则会自旋等待，mailbox 中存入从核的启动地址（即内核的启动地址），此时从核才会启动。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// wrapper-src/common/boot.c
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">* Primary CPU finishes platform initialisation and jumps to the kernel.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">* Secondaries are parked, waiting for their mbox to contain a valid address.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">*
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">* @cpu: logical CPU number
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">* @mbox: location to watch
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">* @invalid: value of an invalid address, 0 or -1 depending on the boot method
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">*/&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">__noreturn&lt;/span> &lt;span class="nf">first_spin&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">int&lt;/span> &lt;span class="n">cpu&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">mbox&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span> &lt;span class="n">invalid&lt;/span>&lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="n">cpu&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span> &lt;span class="n">addr&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">entrypoint&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#ifdef KERNEL_32
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span> &lt;span class="nf">jump_kernel&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">addr&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">~&lt;/span>&lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">dtb&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#else
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span> &lt;span class="nf">jump_kernel&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">addr&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="kt">unsigned&lt;/span> &lt;span class="kt">long&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="n">dtb&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#endif
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="o">*&lt;/span>&lt;span class="n">mbox&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">invalid&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">spin&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">mbox&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">invalid&lt;/span>&lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nf">unreachable&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>在 kernel 代码中，主核通过 psci 启动从核（调用函数的参数为 cpu ID 和 kernel entrypoint），boot-wrapper-aarch64 的 psci_cpu_on 函数响应 psci 请求，并将 entry point 存入对应 cpu 的 mailbox 中：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/kernel-call-psci.png"
+loading="lazy"
+alt="kernel-call-psci"
+>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>-C bp.refcounter.non_arch_start_at_default=1&lt;/code>&lt;/p>
+&lt;p>这个参数控制 FVP 处理器核内 generic timer 是否使能，默认是不使能的，如果 generic timer 未打开，Linux 系统就无法正常工作。（现象是进程切换不成功，应该是 generic 无法工作导致中断无法产生）,在使用 boot-wrapper-aarch64 启动时，它不会主动启用 generic timer。&lt;/p>
+&lt;p>如果使用 ATF 作为 boot loader，则无需设置此参数，因为 ATF 会在平台初始化时自动启用 generic timer：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/atf-timer-define.png"
+loading="lazy"
+alt="atf-timer-define"
+>&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/atf-enable-timer.png"
+loading="lazy"
+alt="atf-enable-timer"
+>&lt;/p>
+&lt;p>FVP 手册中 timer 的描述：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-wrapper-multi-core-startup/imgs/fvp-timer-define.png"
+loading="lazy"
+alt="fvp-timer-define"
+>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>-a cluster0.cpu*=$(path/to/linux-system.axf)&lt;/code>&lt;/p>
+&lt;p>这个参数用来指定 FVP 运行的 ELF 文件，星号用于将簇内所有 cpu 的 entry point 改为 ELF 文件的 entry point&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="boot-wrapper-aarch64-使用教程">boot-wrapper-aarch64 使用教程
+&lt;/h2>&lt;p>boot-wrapper-aarch64 的使用较为简单，只需要指定一个带有 Linux Boot Protocal Head 的 kernel 路径和该 kernel dtb 的路径即可。编译产物就是 ELF 格式的 linux-system.axf，示例如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">git clone git://git.kernel.org/pub/scm/linux/kernel/git/mark/boot-wrapper-aarch64.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">cd&lt;/span> boot-wrapper-aarch64
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">autoreconf -i
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">./configure --enable-psci --enable-gicv3 --with-kernel-image&lt;span class="o">=&lt;/span>&lt;span class="k">$(&lt;/span>kernel_image&lt;span class="k">)&lt;/span> --with-dtb&lt;span class="o">=&lt;/span>&lt;span class="k">$(&lt;/span>kernel_dtb&lt;span class="k">)&lt;/span> --host&lt;span class="o">=&lt;/span>aarch64-linux-gnu
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">make
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="总结">总结
+&lt;/h2>&lt;p>本文介绍了如何在 ARM Fixed Virtual Platforms (FVPs) 上使用 boot-wrapper-aarch64 实现多核启动。通过将具有 Linux Boot Protocal Head 的 kernel 文件封装成 ELF 文件，可以简化启动流程并提高调试效率。我们详细讨论了 CPU 亲和性、MPIDR_EL1 寄存器与设备树 cpu 节点的 reg 值的关系，以及 FVP 中相关启动参数的配置。最后，提供了 boot-wrapper-aarch64 的使用教程，帮助读者快速上手。&lt;/p>
+&lt;h2 id="参考文献">参考文献
+&lt;/h2>&lt;ul>
+&lt;li>&lt;a class="link" href="https://github.com/scorp2kk/atf/blob/master/docs/reset-design.md" target="_blank" rel="noopener"
+>ARM Trusted Firmware Reset Design&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://community.arm.com/oss-platforms/w/docs/645/guide-to-run-and-debug-linux-software-stack-on-arm-fixed-virtual-platforms" target="_blank" rel="noopener"
+>Guide to Run and Debug Linux Software Stack on ARM Fixed Virtual Platforms&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://blog.csdn.net/M0XFFF/article/details/127108259" target="_blank" rel="noopener"
+>ARM Development Studio 2021 FVP调试Linux内核代码&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://aijishu.com/a/1060000000497694" target="_blank" rel="noopener"
+>SOC的多核启动流程详解&lt;/a>&lt;/li>
+&lt;li>&lt;a class="link" href="https://zhuanlan.zhihu.com/p/537381492" target="_blank" rel="noopener"
+>linux cpu管理（三） psci启动&lt;/a>&lt;/li>
+&lt;/ul></description></item><item><title>ARM Fixed Virtual Platforms (FVPs) + ATF 多核启动</title><link>https://blog.zlaaa.top/p/fvp-atf-multi-core-startup/</link><pubDate>Tue, 25 Feb 2025 14:10:15 +0800</pubDate><guid>https://blog.zlaaa.top/p/fvp-atf-multi-core-startup/</guid><description>&lt;h2 id="atf-的两种多核启动流程">ATF 的两种多核启动流程
+&lt;/h2>&lt;p>ATF 支持两种多核启动流程：&lt;/p>
+&lt;ul>
+&lt;li>SoC 启动时仅有一个核心上电&lt;/li>
+&lt;li>SoC 启动时所有核心同时上电&lt;/li>
+&lt;/ul>
+&lt;p>这两种启动方式由以下宏定义控制：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/aarch64/bl1_entrypoint.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">func&lt;/span> &lt;span class="n">bl1_entrypoint&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* ---------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * If the reset address is programmable then bl1_entrypoint() is
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * executed only on the cold boot path. Therefore, we can skip the warm
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * boot mailbox mechanism.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * ---------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">el3_entrypoint_common&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_init_sctlr&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_warm_boot_mailbox&lt;/span>&lt;span class="o">=!&lt;/span>&lt;span class="n">PROGRAMMABLE_RESET_ADDRESS&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_secondary_cold_boot&lt;/span>&lt;span class="o">=!&lt;/span>&lt;span class="n">COLD_BOOT_SINGLE_CPU&lt;/span> &lt;span class="err">\&lt;/span> &lt;span class="c1">// 注意这里
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">_init_memory&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_init_c_runtime&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">1&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_exception_vectors&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">bl1_exceptions&lt;/span> \
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">_pie_fixup_size&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="mi">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/include/arch/aarch64/el3_common_macros.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="k">if&lt;/span> &lt;span class="err">\&lt;/span>&lt;span class="n">_secondary_cold_boot&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* -------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Check if this is a primary or secondary CPU cold boot.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The primary CPU will set up the platform while the
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * secondaries are placed in a platform-specific state until the
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * primary CPU performs the necessary actions to bring them out
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * of that state and allows entry into the OS.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * -------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">plat_is_my_cpu_primary&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cbnz&lt;/span> &lt;span class="n">w0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">do_primary_cold_boot&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* This is a cold boot on a secondary CPU */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">plat_secondary_cold_boot_setup&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* plat_secondary_cold_boot_setup() is not supposed to return */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bl&lt;/span> &lt;span class="n">el3_panic&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nl">do_primary_cold_boot&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">.&lt;/span>&lt;span class="n">endif&lt;/span> &lt;span class="cm">/* _secondary_cold_boot */&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="单核上电">单核上电
+&lt;/h3>&lt;p>当编译 ATF 时，如果将 COLD_BOOT_SINGLE_CPU 设置为 1，则采用第一种方式：冷启动时只有一个核心运行，secondary_cold_boot 宏不会被编译，直接执行 do_primary_cold_boot。此时，从核需要通过内核发出 PSCI 请求，由 ATF 处理后才能启动。下图展示了内核调用 PSCI 并由 ATF 响应的过程：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/kernel-call-psci.png"
+loading="lazy"
+alt="kernel-call-psci"
+>&lt;/p>
+&lt;p>为 FVP 启动参数添加追踪插件（&amp;ndash;plugin FVP-PATH/Base_RevC_AEMvA_pkg/plugins/Linux64_armv8l_GCC-9.3/TarmacTrace.so）后，可以观察到 u-boot 启动时仍然只有单核（cpu0）运行，其他核心只有在进入 kernel 后才被唤醒：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/fvp-tarmactrace.png"
+loading="lazy"
+alt="fvp-tarmactrace"
+>&lt;/p>
+&lt;h3 id="多核上电">多核上电
+&lt;/h3>&lt;p>如果将 COLD_BOOT_SINGLE_CPU 设置为 0，则采用第二种方式：冷启动时所有核心同时上电，主核执行 do_primary_cold_boot，从核执行 plat_secondary_cold_boot_setup。在 plat_secondary_cold_boot_setup 函数中，从核会进入低功耗状态，等待 kernel 通过 PSCI 请求唤醒并写入启动地址，然后通过检查 mailbox 是否为非零值来完成唤醒过程：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// atf-src/plat/arm/board/fvp/aarch64/fvp_helpers.S
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">mov_imm&lt;/span> &lt;span class="n">x0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">PLAT_ARM_TRUSTED_MAILBOX_BASE&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/* Wait until the entrypoint gets populated */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nl">poll_mailbox&lt;/span>&lt;span class="p">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ldr&lt;/span> &lt;span class="n">x1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">x0&lt;/span>&lt;span class="p">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">cbz&lt;/span> &lt;span class="n">x1&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mf">1f&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">br&lt;/span> &lt;span class="n">x1&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="mi">1&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">wfe&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">b&lt;/span> &lt;span class="n">poll_mailbox&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>具体采用哪种启动方式取决于编译 ATF 时 COLD_BOOT_SINGLE_CPU 的配置值。在 ATF 的默认设置中，该值通常为 0（定义于 atf-src/make_helpers/defaults.mk），各平台可根据需要在各自的 platform.mk 中进行覆盖。在 FVP 的配置中，COLD_BOOT_SINGLE_CPU 也被设置为 0。&lt;/p>
+&lt;h2 id="fvp-配置启动时核心上电情况">FVP 配置启动时核心上电情况
+&lt;/h2>&lt;p>FVP 还允许配置启动时为哪些核心上电，这与 COLD_BOOT_SINGLE_CPU 的不同取值组合，会产生不同的启动行为，如下表所示：&lt;/p>
+&lt;table>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>pctl.startup=0.0.0.0（仅主核上电）&lt;/th>
+&lt;th>pctl.startup=0.0.0.*（所有核心上电）&lt;/th>
+&lt;/tr>
+&lt;tr>
+&lt;td>COLD_BOOT_SINGLE_CPU=0&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>COLD_BOOT_SINGLE_CPU=1&lt;/td>
+&lt;td style="background-color: lightgreen;">✅ 正常启动&lt;/td>
+&lt;td style="background-color: lightcoral;">❌ 无法启动&lt;/td>
+&lt;/tr>
+&lt;/table>
+&lt;p>当 COLD_BOOT_SINGLE_CPU=1 且 pctl.startup=0.0.0.* 时，由于 do_primary_cold_boot 函数被多个核心重复执行，系统无法正常启动。&lt;br>
+而在 COLD_BOOT_SINGLE_CPU=0 且 pctl.startup=0.0.0.0 的情况下，系统可以通过 PSCI 接口唤醒尚未上电的次核：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/fvp-atf-multi-core-startup/imgs/atf-reset-cpu1.png"
+loading="lazy"
+alt="atf-reset-cpu1"
+>&lt;/p></description></item><item><title>降低 VMware Fusion 的硬盘占用</title><link>https://blog.zlaaa.top/p/shrink-vmware-disk/</link><pubDate>Fri, 21 Feb 2025 16:08:17 +0800</pubDate><guid>https://blog.zlaaa.top/p/shrink-vmware-disk/</guid><description>&lt;p>在使用 VMware Fusion 创建虚拟机时，分配给虚拟机的硬盘空间并不会立即占用宿主机的空间，而是根据虚拟机的实际需求动态申请。&lt;/p>
+&lt;p>经过长时间使用，VMware Fusion 占用宿主机的硬盘空间可能会大于虚拟机实际使用的空间。这是因为 VMware Fusion 只会向宿主机申请空间，而不会主动释放。此时，需要借助 VMware Tools 手动释放硬盘空间。&lt;/p>
+&lt;h2 id="安装-vmware-tools">安装 VMware Tools
+&lt;/h2>&lt;p>可以参考&lt;a class="link" href="https://techdocs.broadcom.com/cn/zh-cn/vmware-cis/vsphere/tools/12-5-0/vmware-tools-administration-12-5-0/installing-vmware-tools/manually-install-vmware-tools-on-linux.html" target="_blank" rel="noopener"
+>官方文档&lt;/a>，或者也可以使用 apt 安装：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">sudo apt-get install open-vm-tools-desktop
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用-vmware-tools-shrink-硬盘">使用 VMware Tools Shrink 硬盘
+&lt;/h2>&lt;p>运行以下 shell 脚本，释放虚拟机未使用的磁盘空间：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">disk_list&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="sb">`&lt;/span>sudo vmware-toolbox-cmd disk list&lt;span class="sb">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">for&lt;/span> disk in &lt;span class="si">${&lt;/span>&lt;span class="nv">disk_list&lt;/span>&lt;span class="si">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> sudo vmware-toolbox-cmd disk wipe &lt;span class="si">${&lt;/span>&lt;span class="nv">disk&lt;/span>&lt;span class="si">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo vmware-toolbox-cmd disk shrinkonly
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>ARM Fixed Virtual Platforms (FVPs)中运行 Hypervisor，Guest OS 的全局变量没有置零</title><link>https://blog.zlaaa.top/p/global-val-is-not-zero-in-fvp/</link><pubDate>Mon, 06 Jan 2025 21:01:07 +0800</pubDate><guid>https://blog.zlaaa.top/p/global-val-is-not-zero-in-fvp/</guid><description>&lt;h2 id="前言">前言
+&lt;/h2>&lt;p>最近在为 Hypervisor 适配新平台 ARM Fixed Virtual Platforms (FVPs)，具体架构是 FVP + Hypervisor + Guest OS，发现 Guest OS 无法启动。然而，QEMU + Hypervisor + Guest OS 一切正常。进一步调试后发现，在 FVP 场景下，Guest OS 中所有未初始化的全局变量均不是零值，导致默认它们为零的代码出现错误。&lt;/p>
+&lt;p>根据 C 标准，未初始化的全局变量应默认置零：&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>如果一个具有自动存储周期的对象不被显式地初始化，那么其值是不确定的。如果具有静态或线程存储周期的一个对象不被显式初始化，那么&lt;/strong>&lt;/p>
+&lt;p>—— 如果它具有指针类型，那么它被初始化为一个空指针；&lt;/p>
+&lt;p>—— 如果它具有算术类型，那么它被初始化为（正的或负的）零；&lt;/p>
+&lt;p>—— 如果它是一个聚合类型，那么每个成员被初始化（递归地），根据以上规则，并且任何填充被初始化为零比特；&lt;/p>
+&lt;p>—— 如果它是一个联合体，那么第一个命名成员被（递归地）初始化，根据以上规则，并且填充被初始化为零比特。&lt;/p>&lt;/blockquote>
+&lt;h2 id="问题分析">问题分析
+&lt;/h2>&lt;p>对于 ELF 文件来说，存储变量的叫数据段。数据段分为 .data 段和 .bss 段，其中 .data 段存储&lt;strong>已经初始化&lt;/strong>的全局变量和静态变量，.bss 段存储&lt;strong>未经初始化&lt;/strong>的全局变量。&lt;/p>
+&lt;p>.bss 段属于 nload 段，在镜像中不占空间，镜像被加载后，才会映射到内存，此时 .bss 段的内容继承自被映射的内存区域。&lt;/p>
+&lt;p>很不幸，我运行的 Guest OS 并没有清零自己的 .bss 段，而且 Hypervisor 的实现也比较简单，仅仅是做了以下内存映射：GPA -&amp;gt; HVA -&amp;gt; HPA，将自身的 memory 区域一一映射给 Guest OS，也没有对这部分内存做置零处理。&lt;/p>
+&lt;p>但是为什么 QEMU + Hypervisor + Guest OS 正常运行，而 FVP + Hypervisor + Guest OS 不行呢？&lt;/p>
+&lt;p>这是因为 QEMU 提供的可用内存的默认值都是 0：
+&lt;img src="https://blog.zlaaa.top/post/global-val-is-not-zero-in-fvp/imgs/qemu-memory-in-gdb.png"
+loading="lazy"
+alt="qemu-memory-in-gdb"
+>
+而 FVP 提供的可用内存区域默认值是 0xcfdfdfdf 与 0xdfdfdfcf 的循环：
+&lt;img src="https://blog.zlaaa.top/post/global-val-is-not-zero-in-fvp/imgs/fvp-memory-in-gdb.png"
+loading="lazy"
+alt="fvp-memory-in-gdb"
+>&lt;/p>
+&lt;hr>
+&lt;p>具体见 FVP 的 params：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">FVP_Base_RevC-2xAEMvA --list-params &lt;span class="p">|&lt;/span> grep fill
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dmc.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dmc.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dmc_phy.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dmc_phy.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_local_dap_rom.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_local_dap_rom.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_ram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_ram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_usb.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.dummy_usb.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.ns_dram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.ns_dram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.psram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.psram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.rl_dram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.rl_dram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.rt_dram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.rt_dram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.s_dram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.s_dram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.secureDRAM.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.secureDRAM.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.secureSRAM.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.secureSRAM.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.sram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.sram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.vram.fill1&lt;span class="o">=&lt;/span>&lt;span class="m">3755990991&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xdfdfdfcf&amp;#39; : Fill pattern 1, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">bp.vram.fill2&lt;span class="o">=&lt;/span>&lt;span class="m">3487555551&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xcfdfdfdf&amp;#39; : Fill pattern 2, initialise memory at start of simulation with alternating fill1, fill2 pattern&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.ext_abort_fill_data&lt;span class="o">=&lt;/span>&lt;span class="m">18302063723721653757&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xfdfdfdfcfcfdfdfd&amp;#39; : Returned data, if external aborts are asynchronous&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.randomize_unknowns_at_reset&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (bool , init-time) default = &amp;#39;0&amp;#39; : Will fill in unknown bits in registers at reset with random value using register_reset_data as seed, it overrides scramble_unknowns_at_reset&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.register_reset_data&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill register bits when they become UNKNOWN at reset.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.register_reset_data_hi&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill the upper-half of 128-bit registers when the bits become UNKNOWN at reset.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.scramble_unknowns_at_reset&lt;span class="o">=&lt;/span>&lt;span class="m">1&lt;/span> &lt;span class="c1"># (bool , init-time) default = &amp;#39;1&amp;#39; : Will fill in unknown bits in registers at reset with register_reset_data&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster0.unpred_extdbg_unknown_bits&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill only in UNKNOWN bit-fields of external debug registers e.g., EDPFR and EDDFR.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.ext_abort_fill_data&lt;span class="o">=&lt;/span>&lt;span class="m">18302063723721653757&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0xfdfdfdfcfcfdfdfd&amp;#39; : Returned data, if external aborts are asynchronous&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.randomize_unknowns_at_reset&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (bool , init-time) default = &amp;#39;0&amp;#39; : Will fill in unknown bits in registers at reset with random value using register_reset_data as seed, it overrides scramble_unknowns_at_reset&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.register_reset_data&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill register bits when they become UNKNOWN at reset.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.register_reset_data_hi&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill the upper-half of 128-bit registers when the bits become UNKNOWN at reset.&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.scramble_unknowns_at_reset&lt;span class="o">=&lt;/span>&lt;span class="m">1&lt;/span> &lt;span class="c1"># (bool , init-time) default = &amp;#39;1&amp;#39; : Will fill in unknown bits in registers at reset with register_reset_data&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cluster1.unpred_extdbg_unknown_bits&lt;span class="o">=&lt;/span>&lt;span class="m">0&lt;/span> &lt;span class="c1"># (int , init-time) default = &amp;#39;0x0&amp;#39; : Data used to fill only in UNKNOWN bit-fields of external debug registers e.g., EDPFR and EDDFR.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>以上配置项显示了 FVP 可以对如下内存区域进行配置：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.dmc.*&lt;/code> 和 &lt;code>bp.dmc_phy.*&lt;/code>&lt;/strong>&lt;br>
+表示 DRAM Controller（内存控制器）及其物理层相关的内存填充值。&lt;br>
+用途：初始化内存控制器的地址空间，可能包括配置寄存器、缓冲区等。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.ns_dram.*&lt;/code>&lt;/strong>&lt;br>
+表示 Non-Secure DRAM（非安全动态随机存取存储器）的填充值。&lt;br>
+用途：初始化普通内存区域（非安全内存），模拟器启动时填充的默认模式。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.rl_dram.*&lt;/code> 和 &lt;code>bp.rt_dram.*&lt;/code>&lt;/strong>&lt;br>
+表示 Real-time Left 和 Real-time Right DRAM，分别对应系统的左右两部分实时内存。&lt;br>
+用途：通常用于模拟分区的实时内存。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.s_dram.*&lt;/code> 和 &lt;code>bp.secureDRAM.*&lt;/code>&lt;/strong>&lt;br>
+表示 Secure DRAM（安全动态随机存取存储器）的填充值。&lt;br>
+用途：存储安全相关数据，例如密钥、加密缓存等。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.psram.*&lt;/code>&lt;/strong>&lt;br>
+表示 PSRAM（伪静态随机存取存储器）的填充值。&lt;br>
+用途：嵌入式设备中用于提高性能的混合型存储器。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.sram.*&lt;/code> 和 &lt;code>bp.secureSRAM.*&lt;/code>&lt;/strong>&lt;br>
+表示 SRAM（静态随机存取存储器）和 Secure SRAM 的填充值。&lt;br>
+用途：SRAM 通常用于高速缓存或快速存储，Secure SRAM 用于安全用途。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.vram.*&lt;/code>&lt;/strong>&lt;br>
+表示 VRAM（视频随机存取存储器）的填充值。&lt;br>
+用途：用于存储图形数据或显示缓冲区。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;code>bp.dummy_*&lt;/code>&lt;/strong>&lt;br>
+表示模拟器中用于占位或辅助调试的虚拟内存区域（如 dummy_ram、dummy_usb）。&lt;br>
+用途：不对应真实硬件，而是提供测试或开发的功能。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;p>关于 fill1 和 fill2，如果他们的值分别是 A 和 B，那么 FVP 的对应内存区间的值就会是 ABABABABABABABABABAB&amp;hellip;&amp;hellip; 的循环。&lt;/p>
+&lt;p>如果不对 FVP 内存初始值进行配置，.bss 段“展开”后的内容就是默认的 0xcfdfdfdfdfdfdfcf，这也是为什么 debug 过程中看到所有未经初始化的值都是 0xcfdfdfdfdfdfdfcf。&lt;/p>
+&lt;p>对于我这个例子，Guest OS 镜像是嵌入 Hypervisor 镜像中的，经过测试，发现 Hypervisor 镜像所在内存区间为 bp.s_dram，为 FVP 添加如下启动参数后，Guest OS 可以正常启动：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl"> -C bp.s_dram.fill1&lt;span class="o">=&lt;/span>0x0 &lt;span class="se">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="se">&lt;/span> -C bp.s_dram.fill2&lt;span class="o">=&lt;/span>0x0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>PS:&lt;/p>
+&lt;p>关于为什么是 bp.s_dram，&lt;a class="link" href="https://documentation-service.arm.com/static/5f4d1264ca7b6a3399375cb4" target="_blank" rel="noopener"
+>FVP 手册&lt;/a>中可以找到一些蛛丝马迹。&lt;del>其实我是挨个试的&lt;/del>&lt;/p>
+&lt;p>Hypervisor 镜像所在内存区间的安全属性是 &lt;code>P&lt;/code>
+&lt;img src="https://blog.zlaaa.top/post/global-val-is-not-zero-in-fvp/imgs/fvp-memory-map.png"
+loading="lazy"
+>&lt;/p>
+&lt;p>对于&lt;code>P&lt;/code>，默认的处理策略是安全访问和非安全访问全部拒绝，我猜测拒绝非安全访问的区间，都在 bp.s_dram 的配置范围内。但是我也查看了一些&lt;code>N/S&lt;/code>区间，并不是所有的&lt;code>N/S&lt;/code>区间都在 bs.s_dram 的配置范围内。如果有知道的同学可以在评论区⬇️讨论下。
+&lt;img src="https://blog.zlaaa.top/post/global-val-is-not-zero-in-fvp/imgs/fvp-secure-memory.png"
+loading="lazy"
+>&lt;/p></description></item><item><title>如何 Debug U-Boot</title><link>https://blog.zlaaa.top/p/debug-u-boot/</link><pubDate>Sun, 05 Jan 2025 19:03:20 +0800</pubDate><guid>https://blog.zlaaa.top/p/debug-u-boot/</guid><description>&lt;h2 id="前言">前言
+&lt;/h2>&lt;p>最近在 Debug U-boot 的过程中遇到了无法打断点的问题，找了好久才确定是 U-Boot 自身做 relocate 造成的，其实这个问题在 &lt;a class="link" href="https://docs.u-boot.org/en/latest/develop/gdb.html" target="_blank" rel="noopener"
+>U-Boot 官方文档&lt;/a>中有提及，所以这里做一下记录。&lt;/p>
+&lt;h2 id="减少编译优化与禁用链接时间优化">减少编译优化与禁用链接时间优化
+&lt;/h2>&lt;p>为了方便调试，防止有些变量被优化掉导致 gdb 中看不到，在 U-Boot 的 defconfig 中添加如下配置&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_CC_OPTIMIZE_FOR_DEBUG&lt;/span>&lt;span class="o">=&lt;/span>y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">CONFIG_LTO&lt;/span>&lt;span class="o">=&lt;/span>n
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="开启-u-boot-debug-日志输出">开启 U-Boot Debug 日志输出
+&lt;/h2>&lt;p>修改 u-boot/include/log.h&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/debug-u-boot/imgs/u-boot-debug-log.png"
+loading="lazy"
+alt="u-boot-debug-log"
+>&lt;/p>
+&lt;h2 id="u-boot-relocate-介绍">U-Boot relocate 介绍
+&lt;/h2>&lt;p>U-Boot在启动阶段会将自己的地址做重定向，一开始 add-symbol-file 时没有加地址也可以正常使用，是因为在没有 relocate 前，U-Boot 的地址与符号表中的一致。执行 relocate (u-boot/arch/arm/lib/relocate_64.S) 操作后，U-Boot 的运行地址发生变化，原来导入的符号表就不能用了，需要将符号表导入到新的地址。&lt;/p>
+&lt;h2 id="u-boot-debug-过程">U-Boot Debug 过程
+&lt;/h2>&lt;h3 id="第一步添加符号表无需指定地址">第一步：添加符号表（无需指定地址）
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">add-symbol-file ./workdir/src/u-boot/u-boot
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第二步在-relocate_done-函数处打断点并运行-u-boot">第二步：在 relocate_done 函数处打断点并运行 u-boot
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> &lt;span class="nb">break&lt;/span> relocate_done
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint &lt;span class="m">1&lt;/span> at 0x88002e8c: file arch/arm/lib/relocate_64.S, line 80.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> c
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Continuing.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Breakpoint 1, relocate_code &lt;span class="o">()&lt;/span> at arch/arm/lib/relocate_64.S:80
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="m">80&lt;/span> switch_el x1, 3f, 2f, 1f
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第三步查看-u-boot-重定向后的运行地址">第三步：查看 U-Boot 重定向后的运行地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> p/x &lt;span class="o">(&lt;/span>*&lt;span class="o">(&lt;/span>struct global_data*&lt;span class="o">)&lt;/span>&lt;span class="nv">$x18&lt;/span>&lt;span class="o">)&lt;/span>-&amp;gt;relocaddr
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nv">$2&lt;/span> &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>这一步中，具体的寄存器见表，我这里是 arm64 架构的，所以结构体地址存储在 x18 寄存器中：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Architecture&lt;/th>
+&lt;th>Register&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>arc&lt;/td>
+&lt;td>r25&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm&lt;/td>
+&lt;td>r9&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>arm64&lt;/td>
+&lt;td>x18&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>m68k&lt;/td>
+&lt;td>d7&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>microblaze&lt;/td>
+&lt;td>r31&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mips&lt;/td>
+&lt;td>k0&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>nios2&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>powerpc&lt;/td>
+&lt;td>r2&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>riscv&lt;/td>
+&lt;td>gp&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>sh&lt;/td>
+&lt;td>r13&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="第四步删除原先符号表">第四步：删除原先符号表
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> symbol-file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Discard symbol table? &lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">No symbol file now.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="第五步将符号表加载到重定向后的地址">第五步：将符号表加载到重定向后的地址
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span> add-symbol-file ./workdir/src/u-boot/u-boot 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add symbol table from file &lt;span class="s2">&amp;#34;./workdir/src/u-boot/u-boot&amp;#34;&lt;/span> at
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> .text_addr &lt;span class="o">=&lt;/span> 0xfef1e000
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>y or n&lt;span class="o">)&lt;/span> y
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Reading symbols from ./workdir/src/u-boot/u-boot...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意：&lt;/strong>&lt;/p>
+&lt;p>是否重新导入符号表取决于打断点的位置，如果在 relocate 操作前则不需要，反之则需要。&lt;/p></description></item><item><title>使用 lite-cornea 调试 ARM Fixed Virtual Platforms (FVPs)</title><link>https://blog.zlaaa.top/p/debug-fvp-via-gdb/</link><pubDate>Sun, 05 Jan 2025 15:59:16 +0800</pubDate><guid>https://blog.zlaaa.top/p/debug-fvp-via-gdb/</guid><description>&lt;h2 id="概述">概述
+&lt;/h2>&lt;p>在调试 ARM FVP 模型时，直接通过 GDB 连接是行不通的。虽然 ARM 官方为付费版 Fast Model 提供了 &lt;a class="link" href="https://developer.arm.com/documentation/100964/1115/Plug-ins-for-Fast-Models/GDBRemoteConnection" target="_blank" rel="noopener"
+>GDB 插件&lt;/a>，但免费版 Base Model 并不支持该功能。取而代之，Base Model 提供了一种名为 Iris Debug Server 的 Python Debug API。因此，要使用 GDB 调试 Base FVP，需要通过中间工具进行协议转译。&lt;/p>
+&lt;p>本文将介绍如何使用 lite-cornea 工具简化 FVP 的调试过程。&lt;/p>
+&lt;h2 id="调试工具选择">调试工具选择
+&lt;/h2>&lt;p>目前找到的 Iris-to-GDB 转译工具有以下两个：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&lt;a class="link" href="https://github.com/Linaro/lite-cornea.git" target="_blank" rel="noopener"
+>lite-cornea&lt;/a>&lt;/strong>
+&lt;ul>
+&lt;li>基于 Rust，可直接嵌入 GDB 终端，命令兼容性较好。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&lt;a class="link" href="https://github.com/santongding/iris-gdb-wrapper" target="_blank" rel="noopener"
+>iris-gdb-wrapper&lt;/a>&lt;/strong>
+&lt;ul>
+&lt;li>基于 Python，需要先运行后端服务，然后以远程模式连接 GDB。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>经测试，lite-cornea 支持更多 GDB 命令（如 &lt;code>dump&lt;/code>、&lt;code>restore&lt;/code>），推荐使用。iris-gdb-wrapper 在使用这些命令时有一些 bug，不能正常导入导出内存。&lt;/p>
+&lt;h2 id="安装-lite-cornea">安装 lite-cornea
+&lt;/h2>&lt;h3 id="安装-rust-环境">安装 Rust 环境
+&lt;/h3>&lt;p>运行以下命令快速安装：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">curl --proto &lt;span class="s1">&amp;#39;=https&amp;#39;&lt;/span> --tlsv1.2 -sSf https://sh.rustup.rs &lt;span class="p">|&lt;/span> sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>安装完成后，&lt;strong>重启终端&lt;/strong>并验证 Rust：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">cargo --version
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="编译并安装-lite-cornea">编译并安装 lite-cornea
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">git clone https://github.com/Linaro/lite-cornea.git
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nb">cd&lt;/span> lite-cornea
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cargo build
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">sudo cp target/debug/cornea /usr/bin/
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">cornea --help
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="使用-gdb--lite-cornea-调试-fvp">使用 GDB + lite-cornea 调试 FVP
+&lt;/h2>&lt;h3 id="配置-fvp-启动参数">配置 FVP 启动参数
+&lt;/h3>&lt;p>在启动 FVP 时，添加 -I 参数以启用 Iris Debug Server。&lt;/p>
+&lt;h3 id="编写-gdb-调试脚本">编写 GDB 调试脚本
+&lt;/h3>&lt;p>创建一个 GDB 启动脚本（例如 debug.sh）并添加以下内容：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#!/usr/bin/env -S gdb -q -ix
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>&lt;span class="nb">set&lt;/span> architecture aarch64
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">add-symbol-file /path/to/your/symbol/file
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">target remote &lt;span class="p">|&lt;/span> cornea gdb-proxy component.FVP_Base_RevC_2xAEMvA.cluster0.cpu0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="启动调试">启动调试
+&lt;/h3>&lt;p>运行 FVP 后，执行调试脚本：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">sh debug.sh
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>脚本执行成功后，会自动进入 GDB 调试终端，默认停在 0x0 的位置，方便后续调试：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">$ ./gdb-connect-fvp2.sh
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">The target architecture is &lt;span class="nb">set&lt;/span> to &lt;span class="s2">&amp;#34;aarch64&amp;#34;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">warning: No executable has been specified and target does not support
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">determining executable automatically. Try using the &lt;span class="s2">&amp;#34;file&amp;#34;&lt;/span> command.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">0x0000000000000000 in ?? &lt;span class="o">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="o">(&lt;/span>gdb&lt;span class="o">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>注意&lt;/strong>：&lt;/p>
+&lt;p>cornea 参数中的 FVP_Base_RevC_2xAEMvA 需替换为实际运行的 FVP 模型名称，与 FVP 的二进制文件名（例如 FVP_Base_RevC-2xAEMvA）相似。
+如果不确定模型名称，请参考 &lt;a class="link" href="https://documentation-service.arm.com/static/615eda5ce4f35d24846799a7" target="_blank" rel="noopener"
+>ARM FVP 文档&lt;/a> 中的模型目录：&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/debug-fvp-via-gdb/imgs/fvp-guide-catalog.png"
+loading="lazy"
+alt="ARM FVP Base Model目录"
+>&lt;/p></description></item><item><title>VS Code C/C++ 插件 cpptools CPU 占用过高</title><link>https://blog.zlaaa.top/p/fix-vscode-cpptools-cpu-usage-too-high/</link><pubDate>Wed, 04 Dec 2024 18:27:07 +0800</pubDate><guid>https://blog.zlaaa.top/p/fix-vscode-cpptools-cpu-usage-too-high/</guid><description>&lt;p>在使用 VS Code 打开包含大量文件的 C/C++ 项目时，经常会遇到 CPU 占用过高的问题。尤其是当同时打开多个 VS Code 窗口时，CPU 占用会成倍增加，有时甚至高达 400%，几乎完全占满 4 个核心。经排查，这是由于 C/C++ 插件在分析代码，而我的项目中包含 Linux 源码、u-boot 源码、buildroot 源码等大型代码库，导致插件一直在进行代码分析，进而引发系统卡顿。&lt;/p>
+&lt;h2 id="解决方法排除目录">解决方法：排除目录
+&lt;/h2>&lt;p>可以通过修改 settings.json 文件，为 C/C++ 插件排除特定目录。以下是我的配置示例：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&amp;#34;C_Cpp.files.exclude&amp;#34;&lt;/span>&lt;span class="err">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;**/.git&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;**/workdir&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;**/wkdir&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;**/build&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;**/bin&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;/PROJECT_ROOT/COMPONENT/ANONYMIZED&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="kc">true&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;ul>
+&lt;li>值得注意的是，配置的是&lt;code>C_Cpp.files.exclude&lt;/code>而非&lt;code>files.exclude&lt;/code>，如果配置成后者，这些目录会被 VS Code 的文件资源管理器排除，跟消失了一样。&lt;/li>
+&lt;/ul>
+&lt;h2 id="配置说明">配置说明
+&lt;/h2>&lt;p>&lt;code>**/workdir&lt;/code> 和 &lt;code>**/wkdir&lt;/code>：我的项目中，大量外部源码存储在这两个目录中。&lt;/p>
+&lt;p>&lt;code>/PROJECT_ROOT/COMPONENT/ANONYMIZED&lt;/code>：该目录是 C/C++ 插件缓存代码分析结果的存储位置，排除它可以防止插件重复递归分析自身的缓存文件而产生死循环。&lt;/p>
+&lt;h2 id="参考">参考
+&lt;/h2>&lt;p>有关插件缓存目录（&lt;code>/PROJECT_ROOT/COMPONENT/ANONYMIZED&lt;/code>）的更多讨论，可以参考 &lt;a class="link" href="https://github.com/microsoft/vscode-cpptools/issues/10271#issuecomment-1363489906" target="_blank" rel="noopener"
+>GitHub Issue&lt;/a>。&lt;/p></description></item><item><title>使用Linenoise时转义序列显示异常</title><link>https://blog.zlaaa.top/p/bug-while-inputing-escape-sequences-in-linenoise/</link><pubDate>Thu, 07 Nov 2024 17:10:33 +0800</pubDate><guid>https://blog.zlaaa.top/p/bug-while-inputing-escape-sequences-in-linenoise/</guid><description>&lt;h2 id="linenoise-简介">Linenoise 简介
+&lt;/h2>&lt;p>&lt;a class="link" href="https://github.com/antirez/linenoise/blob/master/linenoise.c" target="_blank" rel="noopener"
+>Linenoise&lt;/a> 是一个轻量级的行编辑库，适用于需要简单命令行编辑功能的应用程序，可以用它快速完成 shell 的开发。它支持多平台，并且与 GNU Readline 库相比，Linenoise 的代码更加简洁，易于集成和使用。&lt;/p>
+&lt;h2 id="转义序列显示异常">转义序列显示异常
+&lt;/h2>&lt;p>在移植 Linenoise 之后，发现此时 Shell 存在一个 Bug，长按某些按键时会输出&lt;code>[D&lt;/code>、&lt;code>[A&lt;/code>、&lt;code>D&lt;/code>、&lt;code>A&lt;/code>之类的乱码，例如，长按左右方向键时会输出如下字符，并且出现的时机不规律。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/bug-while-inputing-escape-sequences-in-linenoise/imgs/img1.png"
+loading="lazy"
+alt="alt text"
+>&lt;/p>
+&lt;h2 id="分析">分析
+&lt;/h2>&lt;p>按理来说按下左右方向键不应输出任何字符，所以肯定和左右方向键的转义序列有关，一些按键的转义序列如下：&lt;/p>
+&lt;ul>
+&lt;li>上箭头键：ESC [ A 或 \x1b[A&lt;/li>
+&lt;li>下箭头键：ESC [ B 或 \x1b[B&lt;/li>
+&lt;li>左箭头键：ESC [ D 或 \x1b[D&lt;/li>
+&lt;li>右箭头键：ESC [ C 或 \x1b[C&lt;/li>
+&lt;li>删除键（Del）：ESC [ 3 ~ 或 \x1b[3~&lt;/li>
+&lt;/ul>
+&lt;p>查看 Linenoise 源码发现，处理逻辑为逐个尝试输入&lt;code>ESC&lt;/code>、&lt;code>[&lt;/code>、&lt;code>A/B/C/D/数字～&lt;/code>&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/bug-while-inputing-escape-sequences-in-linenoise/imgs/img2.png"
+loading="lazy"
+alt="alt text"
+>&lt;/p>
+&lt;p>问题就出在逐个输入这里，如果输入采用的串口不稳定（我这里是 pl011），快速输入就会导致读取失败（Linenoise 读取时串口缓冲区还没有数据），这里直接 break 就会导致状态机跳出当前状态，使得&lt;code>ESC&lt;/code>、&lt;code>[&lt;/code>、&lt;code>A&lt;/code>三者被拆开，并没有当作一个&lt;code>上箭头键&lt;/code>来处理。&lt;/p>
+&lt;h2 id="解决方案">解决方案
+&lt;/h2>&lt;p>解决方案也很简单，就是将 break 改成循环读入，如果读取失败就重新尝试。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-c" data-lang="c">&lt;span class="line">&lt;span class="cl">&lt;span class="k">while&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span>&lt;span class="nf">read&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">l&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">ifd&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">seq&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="o">-&lt;/span>&lt;span class="mi">1&lt;/span>&lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">break&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>在 VMware Fusion 中扩展 Ubuntu 虚拟机磁盘容量</title><link>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</link><pubDate>Sat, 19 Oct 2024 16:18:16 +0800</pubDate><guid>https://blog.zlaaa.top/p/expand-ubuntu-disk-capacity/</guid><description>&lt;p>在使用 VMware Fusion 时，可能会遇到 Ubuntu 虚拟机磁盘空间不足的问题。本文将介绍如何在 VMware Fusion 中扩展 Ubuntu 虚拟机的磁盘容量，以确保系统能够正常运行并满足更多存储需求。&lt;/p>
+&lt;h2 id="在-vmware-fusion-中增加-ubuntu-的硬盘分配空间">在 VMware Fusion 中增加 Ubuntu 的硬盘分配空间
+&lt;/h2>&lt;p>首先将 Ubuntu 虚拟机关机，然后在 VMware Fusion 中配置硬盘空间。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image.png"
+loading="lazy"
+alt="硬盘配置"
+>&lt;/p>
+&lt;h2 id="在-ubuntu-中分配新增空间">在 Ubuntu 中分配新增空间
+&lt;/h2>&lt;p>此时新增的空间只是未分配空间，并没有真正用于 Ubuntu，磁盘大小并没有改变。&lt;/p>
+&lt;p>可以使用 GParted 图形化分区编辑工具对硬盘进行分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-1.png"
+loading="lazy"
+alt="GParted 工具"
+>&lt;/p>
+&lt;p>如图所示，新增的 130G 空间尚未分配。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-2.png"
+loading="lazy"
+alt="未分配空间"
+>&lt;/p>
+&lt;p>首先点击原有的磁盘空间，再点击 resize 按钮，将其扩大至最大。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-3.png"
+loading="lazy"
+alt="调整磁盘大小"
+>&lt;/p>
+&lt;p>完成后可以看到根目录磁盘空间已经扩大至 150G。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/expand-ubuntu-disk-capacity/imgs/image-4.png"
+loading="lazy"
+alt="扩展后的磁盘空间"
+>&lt;/p></description></item><item><title>使用 Hugo Stack 和 GitHub Pages/Actions 搭建博客</title><link>https://blog.zlaaa.top/p/how-to-use-hugo/</link><pubDate>Thu, 17 Oct 2024 13:39:46 +0800</pubDate><guid>https://blog.zlaaa.top/p/how-to-use-hugo/</guid><description>&lt;p>&lt;a class="link" href="https://gohugo.io" target="_blank" rel="noopener"
+>Hugo&lt;/a> 是一个用 Go 语言编写的静态网站生成器，以速度快、易用性高和灵活性强而著称。Hugo 通过结合 Markdown 文件和模板，能够快速生成静态网页，适用于博客、文档和个人网站等场景。它支持多种主题和插件，能够轻松部署到 GitHub Pages 等平台，非常适合开发者和内容创作者使用。&lt;/p>
+&lt;p>Hugo 提供了许多主题，我使用的是 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener"
+>Hugo Stack&lt;/a>。在部署过程中，如果使用 Hugo 官方文档，即使已经取消 draft 标记，也无法显示新建的文章：&lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener"
+>Issue&lt;/a>。可以直接使用 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack-starter" target="_blank" rel="noopener"
+>Hugo Stack 的官方模板&lt;/a> 来解决这个问题。&lt;/p>
+&lt;h2 id="使用模板创建仓库">使用模板创建仓库
+&lt;/h2>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/template.png"
+loading="lazy"
+>
+创建的仓库名为username.github.io，username为自己的github用户名。&lt;/p>
+&lt;h2 id="将仓库克隆到本地并安装-hugo-拓展版">将仓库克隆到本地并安装 Hugo 拓展版
+&lt;/h2>&lt;h3 id="linux">Linux
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">sudo apt install hugo
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="mac-os">Mac OS
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">brew install hugo
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h3 id="windows">Windows
+&lt;/h3>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">choco install hugo-extended
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>或者直接&lt;a class="link" href="https://github.com/gohugoio/hugo/releases/latest" target="_blank" rel="noopener"
+>下载二进制&lt;/a>&lt;/p>
+&lt;h2 id="新增文章并发布">新增文章并发布
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">hugo new content content/posts/my-first-post.md
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>使用此命令创建的文章有 draft 标记，Hugo 在默认情况下并不会发布带有此标记的文章，需要添加 &lt;code>-D&lt;/code> 或 &lt;code>--buildDrafts&lt;/code> 参数。&lt;/p>
+&lt;p>确认发布后，将 draft 标记改为 &lt;code>false&lt;/code>，提交 commit 至 GitHub 即可。&lt;/p>
+&lt;h2 id="github-actions-自动化发布">GitHub Actions 自动化发布
+&lt;/h2>&lt;p>Hugo Stack 模板仓库内包含 &lt;code>deploy.yml&lt;/code>、&lt;code>update-theme.yml&lt;/code> 两个 GitHub Workflow 文件，分别负责自动化发布和更新主题版本，详见 &lt;a class="link" href="https://github.com/CaiJimmy/hugo-theme-stack-starter/tree/master/.github/workflows" target="_blank" rel="noopener"
+>Hugo Stack GitHub Workflows&lt;/a>。仓库的更新会触发 GitHub Actions 进行自动化发布。&lt;/p>
+&lt;h2 id="github-pages-配置">GitHub Pages 配置
+&lt;/h2>&lt;p>&lt;code>deploy.yml&lt;/code> 会将博客发布到 &lt;code>gh-pages&lt;/code> 分支。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/deploy-yml.png"
+loading="lazy"
+alt="deploy.yml"
+>&lt;/p>
+&lt;p>所以需要在仓库设置中更改 Pages 的分支为 &lt;code>gh-pages&lt;/code>。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/repo-pages-setting.png"
+loading="lazy"
+alt="repo-pages-setting"
+>&lt;/p>
+&lt;p>如果没有 &lt;code>gh-pages&lt;/code> 选项，可能 GitHub Actions 还在构建中，等待构建完毕即可。&lt;/p>
+&lt;h2 id="自定义域名">自定义域名
+&lt;/h2>&lt;p>发布完毕后，可以通过 &lt;code>https://username.github.io&lt;/code> 访问，也可以配置自定义域名。&lt;/p>
+&lt;p>只需要将你的域名 CNAME 指向 &lt;code>username.github.io&lt;/code>，并在仓库设置中添加 Custom domain，等待 DNS 验证成功后，即可使用自定义的域名访问刚刚发布的博客。&lt;/p>
+&lt;p>同时也可以配置强制 https 以增强安全性。&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/custom-domain.png"
+loading="lazy"
+alt="custom-domain"
+>&lt;/p>
+&lt;h2 id="添加-giscus-评论系统">添加 Giscus 评论系统
+&lt;/h2>&lt;p>Hugo支持多种评论系统，我选择了 Giscus。Giscus 会将所有的评论保存至Github Discussion，无需担心数据丢失的问题。&lt;/p>
+&lt;h3 id="安装-giscus-app-至当前仓库">安装 Giscus App 至当前仓库
+&lt;/h3>&lt;p>&lt;a class="link" href="https://github.com/apps/giscus" target="_blank" rel="noopener"
+>Giscus App&lt;/a>&lt;/p>
+&lt;h3 id="开启仓库的-discussion-功能">开启仓库的 Discussion 功能
+&lt;/h3>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/enable-discussion.png"
+loading="lazy"
+alt="enable-discussion"
+>&lt;/p>
+&lt;h3 id="在-giscus-官网获取配置信息">在 Giscus 官网获取配置信息
+&lt;/h3>&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/giscus-config.png"
+loading="lazy"
+alt="giscus-config"
+>&lt;/p>
+&lt;p>&lt;img src="https://blog.zlaaa.top/post/how-to-use-hugo/imgs/giscus-config2.png"
+loading="lazy"
+alt="giscus-config2"
+>&lt;/p>
+&lt;h3 id="在-hugo-配置文件中启用-giscus-评论系统">在 Hugo 配置文件中启用 Giscus 评论系统
+&lt;/h3>&lt;p>配置信息与上一步在 Giscus 官网获取的信息相对应，配置文件示例如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl"># config/_defconfig/params.toml
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">[comments.giscus]
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">repo = &amp;#34;zlaazlaa/zlaazlaa.github.io&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">repoId = &amp;#34;R_kgDONAZhPA&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">category = &amp;#34;Announcements&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">categoryId = &amp;#34;DIC_kwDONAZhPM4CjXiy&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">mapping = &amp;#34;pathname&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">lightTheme = &amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">darkTheme = &amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">reactionsEnabled = 1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">emitMetadata = 0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>
